@@ -1,6 +1,6 @@
-# lista-super
+# tickoff
 
-PWA para la lista del mandado compartida en un Hogar. React 19 + Vite + TypeScript.
+PWA de listas personales y compartidas (compras y pendientes). React 19 + Vite + TypeScript.
 
 ## Versiones con mise
 - Node y pnpm se fijan en `mise.toml`. No uses el Node ni el pnpm globales del sistema.

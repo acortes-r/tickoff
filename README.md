@@ -1,6 +1,6 @@
-# lista-super
+# tickoff
 
-Lista del mandado compartida, instalable como PWA en Android y iOS.
+Listas de compras y pendientes, personales o compartidas, instalables como PWA en Android y iOS.
 
 ## Requisitos
 - [mise](https://mise.jdx.dev)
