@@ -29,15 +29,17 @@ tickoff es una PWA (Android e iOS) de listas personales organizadas por categor�
 8. Historial: compras cerradas y pendientes completados.
 9. Revertir errores (destachar, deshacer cierre, regresar desde historial).
 10. Funcionar sin señal y sincronizar al volver.
-11. Exportar respaldo a JSON y CSV.
+11. Exportar respaldo a JSON y CSV en una carpeta "tickoff" de Google Drive.
+12. Actividad: campana de avisos, aviso al abrir la app, punto en listas con cambios y resaltado de lo nuevo.
 
 ## No-objetivos v1
 
-- Notificaciones push (cambios del otro con la app cerrada).
+- Notificaciones push (cambios del otro con la app cerrada). Los avisos de F12 solo se ven dentro de la app.
 - Recordatorios y elementos recurrentes (ej. croquetas cada 15 días). Feature opcional posterior.
 - Fechas límite, prioridades o asignar pendientes a alguien.
 - Vista que junte elementos de varias listas por tienda (ej. "todo lo de Walmart"). Candidata para después.
 - Precios, presupuesto, tickets.
+- Fotos en elementos.
 - Importar datos.
 - Apps nativas o publicación en tiendas.
 
@@ -83,6 +85,7 @@ tickoff es una PWA (Android e iOS) de listas personales organizadas por categor�
 ### F3. Listas
 - Crear lista: nombre y categoría.
 - Renombrar y cambiar de categoría.
+- Borrar: solo el dueño; pide confirmación y la borra para todos los miembros, incluido su historial.
 - Pantalla de inicio: listas agrupadas por categoría, con contador de pendientes por comprar y por hacer, y un indicador de lista compartida.
 
 ### F3b. Pestañas Comprar / Hacer
@@ -91,13 +94,12 @@ tickoff es una PWA (Android e iOS) de listas personales organizadas por categor�
 - Cada lista recuerda la última pestaña usada (por usuario), así Despensa abre en Comprar y Trabajo en Hacer sin tocar nada.
 - Un elemento se puede mover a la otra pestaña desde su edición (ej. "pintar la barda" → "comprar pintura" es otro elemento, pero un error de pestaña se corrige moviéndolo).
 - Ambas pestañas existen siempre, aunque una esté vacía.
-- Borrar: solo el dueño; pide confirmación y la borra para todos los miembros, incluido su historial.
 
 ### F4. Compartir
 - **Invitar:** el dueño, desde una lista, toca "Compartir" y la app genera un link con token. Se comparte con la Web Share API (WhatsApp, etc.), con copiar al portapapeles como respaldo.
 - El token sirve una sola vez y vence a los 7 días.
 - **Unirse:** quien abre el link entra con Google, ve el nombre de la lista y quién la comparte, y acepta. La lista aparece en sus listas; nada de lo suyo cambia.
-  - El nombre de la lista, su tipo y el nombre del dueño se copian en la invitación al crearla, para mostrarlos antes de aceptar sin dar acceso a la lista. Cualquier usuario autenticado que conozca el token puede leer esa invitación (y solo esa).
+  - El nombre de la lista y el nombre y foto del dueño se copian en la invitación al crearla, para mostrarlos antes de aceptar sin dar acceso a la lista. Cualquier usuario autenticado que conozca el token puede leer esa invitación (y solo esa).
 - **Miembros:** en la lista se ve el dueño y los miembros (nombre y foto). Un miembro puede hacer todo lo de los elementos y del historial (agregar, editar, tachar, cerrar compra, archivar, deshacer, regresar, reabrir); no puede renombrar, borrar la lista ni invitar.
 - **Control del dueño:** sacar a un miembro y cancelar invitaciones pendientes.
 - **Salir:** un miembro puede salir de una lista compartida; deja de verla.
@@ -149,17 +151,33 @@ Diferencia con F8 "volver a agregar": volver a agregar **copia** el producto a l
   - Un documento por elemento, así que editar elementos distintos nunca choca.
   - Las escrituras actualizan solo los campos cambiados (`update`, no reemplazar el documento): si uno edita la cantidad y otro tacha el mismo producto, sobreviven ambos cambios.
   - Si dos cambian el mismo campo, gana el último, sin aviso. Aceptable.
+  - Cambios rechazados al reconectar (ej. te sacaron de la lista mientras estabas sin señal): Firestore los revierte en pantalla y la app muestra "Algunos cambios no se guardaron porque ya no tienes acceso a esta lista".
+  - La sincronización ocurre con la app abierta; lo hecho sin señal con la app cerrada queda en el celular y se envía al volver a abrirla.
   - Cerrar compra o archivar **no borra** los documentos de elementos: los marca `status: "closed"` con `historyId` y desaparecen de la vista. Así, una edición offline que llega después cae sobre un elemento cerrado y no revive un elemento fantasma. Regresar o reabrir vuelve a poner `status` en pendiente o hecho.
 
-### F11. Exportar respaldo
+### F11. Exportar respaldo a Google Drive
 - En Ajustes: "Exportar JSON" (categorías, tiendas, listas propias y compartidas a las que pertenece, elementos e historial) y "Exportar CSV" (elementos e historial).
+- Los archivos se guardan en una carpeta **"tickoff"** en el Drive del usuario: `tickoff-YYYY-MM-DD.json`, `tickoff-elementos-YYYY-MM-DD.csv`, `tickoff-historial-YYYY-MM-DD.csv`. Si ya existe uno con ese nombre se agrega la hora (`-HHmm`).
+- La primera vez Google pide permiso para Drive. El permiso es `drive.file`: la app solo ve los archivos y la carpeta que ella creó, no el resto del Drive.
+- La carpeta se crea la primera vez y se reutiliza.
+- Si Drive falla o no hay señal, se ofrece descargar los archivos al celular.
 - Solo exportar en v1.
+
+### F12. Actividad y avisos
+- Cada acción de un miembro deja un registro en la bitácora de la lista, en la misma escritura que el cambio.
+- Acciones que generan aviso: agregar, tachar/completar, terminar compra, archivar hechos, borrar elemento, alguien se unió, alguien salió. No generan aviso: editar cantidad/nota/tienda, mover de pestaña, destachar, deshacer.
+- Solo cuenta la actividad de **otros**; lo propio no genera avisos.
+- **Campana 🔔** en el encabezado: contador de avisos no leídos; al abrirla muestra la actividad de todas las listas del usuario, más reciente primero, agrupada (ej. "Ana agregó 5 elementos a Despensa · hace 2 h": misma persona, misma acción, misma lista, dentro de 30 min). Abrir la campana marca todo como leído. Tocar un aviso abre esa lista.
+- **Al abrir la app:** si hay actividad de otros desde la última vez, aviso arriba por lista (ej. "Ana actualizó Despensa: 3 agregados, 2 tachados"); con más de 2 listas, un resumen "N listas con cambios".
+- **Inicio:** punto de color en listas con actividad de otros posterior a la última vez que el usuario abrió esa lista.
+- **Dentro de la lista:** elementos agregados por otros desde la última visita se resaltan unos segundos.
+- Se guardan 30 días. Sin servidor que limpie, la app borra los registros de más de 30 días de una lista cuando alguien la abre.
 
 ## Pantallas
 
 1. **Login** — "Entrar con Google".
-2. **Inicio** — listas agrupadas por categoría, botón "Nueva lista". La app abre directo en la última lista usada (con el campo de captura listo); Inicio queda a un toque. Si esa lista ya no existe o ya no tiene acceso, abre Inicio.
-3. **Lista** — pestañas Comprar / Hacer, campo de captura, chips de tienda (solo Comprar), elementos pendientes y tachados, "Terminar compra" o "Archivar hechos" según la pestaña, acceso a historial y a compartir.
+2. **Inicio** — campana 🔔 en el encabezado, listas agrupadas por categoría (punto en las que tienen cambios), botón "Nueva lista". La app abre directo en la última lista usada (con el campo de captura listo); Inicio queda a un toque. Si esa lista ya no existe o ya no tiene acceso, abre Inicio.
+3. **Lista** — campana en el encabezado, pestañas Comprar / Hacer, campo de captura, chips de tienda (solo Comprar), elementos pendientes y tachados, "Terminar compra" o "Archivar hechos" según la pestaña, acceso a historial y a compartir.
 4. **Historial de lista** — registros y su detalle.
 5. **Compartir / miembros** — link de invitación, miembros, invitaciones pendientes, salir.
 6. **Unirse** — destino del link de invitación.
@@ -171,7 +189,8 @@ Diseño mobile-first; en escritorio basta con que se vea bien centrado.
 
 ```
 users/{uid}
-  displayName, photoURL, defaultStoreId, lastListId?, createdAt
+  displayName, photoURL, defaultStoreId, lastListId?, createdAt,
+  notificationsReadAt?, driveFolderId?
 
 users/{uid}/categories/{categoryId}
   name, icon, color, order
@@ -182,6 +201,7 @@ users/{uid}/stores/{storeId}
 users/{uid}/listPrefs/{listId}
   categoryId?            // categoría personal para listas propias y compartidas
   lastTab: "buy" | "do"
+  lastSeenAt?            // última vez que abrió la lista
 
 lists/{listId}
   name,
@@ -208,6 +228,11 @@ lists/{listId}/history/{entryId}
   closedAt, closedBy, closedByName,
   items: [{ itemId, name, quantity?, storeName?, note?, addedByName, doneByName }]
 
+lists/{listId}/activity/{activityId}
+  type: "added" | "done" | "closed" | "archived" | "deleted" | "joined" | "left",
+  actorUid, actorName, at,
+  itemName?, count?        // count para cerrar/archivar
+
 lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
   name, lastStoreName?, lastPurchasedAt?, timesPurchased
 ```
@@ -224,6 +249,10 @@ lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
 - Listas propias por categoría (despensa, trabajo, jardín…); se comparten solo las que el usuario elige.
 - Cosas por comprar y por hacer conviven en la misma lista, separadas en pestañas.
 - Sin notificaciones push en v1; recordatorios como feature opcional posterior.
+- Sin fotos en v1.
+- Respaldo exportado a una carpeta "tickoff" en Google Drive.
+- Aviso cuando se rechazan cambios hechos sin señal.
+- Avisos de actividad: campana, aviso al abrir, punto en Inicio y resaltado; guardados en Firebase 30 días.
 - Catálogo de tiendas con una default.
 - Historial con posibilidad de revertir.
 - Nombre del proyecto: tickoff.
@@ -242,7 +271,9 @@ lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
 - "Terminar compra" respeta el filtro de tienda activo.
 - Pendientes: tachar + "Archivar hechos" en lugar de archivar al instante.
 - Autocompletado y tienda sugerida por lista.
-- Exportar JSON y CSV; sin importar.
+- Exportar JSON y CSV; sin importar. Descarga local como respaldo si Drive falla.
+- Bitácora de actividad por lista (no por destinatario); agrupación de avisos en ventanas de 30 min.
+- Acciones que generan aviso (aprobadas por el usuario): agregar, tachar, terminar, archivar, borrar, unirse, salir.
 - Miembros pueden hacer todas las acciones de elementos e historial (incluido deshacer y reabrir).
 - Tiendas: los productos guardan solo el nombre; renombrar/borrar en el catálogo no toca productos; chips agrupan por nombre normalizado.
 - Conflictos: escrituras por campo; mismo campo gana el último; cerrar marca elementos como `closed` en vez de borrarlos.
