@@ -78,7 +78,7 @@ tickoff es una PWA (Android e iOS) de listas personales organizadas por categor�
 - Cerrar sesión desde Ajustes.
 
 ### F2. Categorías
-- Crear, renombrar, borrar y reordenar categorías. Cada una tiene nombre, ícono y color.
+- Crear, renombrar, borrar y reordenar categorías. Cada una tiene nombre, ícono y un tono apagado de una paleta fija (ver `DESIGN.md`).
 - Al borrar una categoría, sus listas pasan a "Sin categoría".
 - La categoría es personal: si alguien te comparte una lista, tú decides en qué categoría tuya la pones (por default "Sin categoría"). El otro miembro no ve tu elección.
 
@@ -167,7 +167,7 @@ Diferencia con F8 "volver a agregar": volver a agregar **copia** el producto a l
 - Cada acción de un miembro deja un registro en la bitácora de la lista, en la misma escritura que el cambio.
 - Acciones que generan aviso: agregar, tachar/completar, terminar compra, archivar hechos, borrar elemento, alguien se unió, alguien salió. No generan aviso: editar cantidad/nota/tienda, mover de pestaña, destachar, deshacer.
 - Solo cuenta la actividad de **otros**; lo propio no genera avisos.
-- **Campana 🔔** en el encabezado: contador de avisos no leídos; al abrirla muestra la actividad de todas las listas del usuario, más reciente primero, agrupada (ej. "Ana agregó 5 elementos a Despensa · hace 2 h": misma persona, misma acción, misma lista, dentro de 30 min). Abrir la campana marca todo como leído. Tocar un aviso abre esa lista.
+- **Campana** (ícono) en el encabezado: contador de avisos no leídos; al abrirla muestra la actividad de todas las listas del usuario, más reciente primero, agrupada (ej. "Ana agregó 5 elementos a Despensa · hace 2 h": misma persona, misma acción, misma lista, dentro de 30 min). Abrir la campana marca todo como leído. Tocar un aviso abre esa lista.
 - **Al abrir la app:** si hay actividad de otros desde la última vez, aviso arriba por lista (ej. "Ana actualizó Despensa: 3 agregados, 2 tachados"); con más de 2 listas, un resumen "N listas con cambios".
 - **Inicio:** punto de color en listas con actividad de otros posterior a la última vez que el usuario abrió esa lista.
 - **Dentro de la lista:** elementos agregados por otros desde la última visita se resaltan unos segundos.
@@ -176,14 +176,14 @@ Diferencia con F8 "volver a agregar": volver a agregar **copia** el producto a l
 ## Pantallas
 
 1. **Login** — "Entrar con Google".
-2. **Inicio** — campana 🔔 en el encabezado, listas agrupadas por categoría (punto en las que tienen cambios), botón "Nueva lista". La app abre directo en la última lista usada (con el campo de captura listo); Inicio queda a un toque. Si esa lista ya no existe o ya no tiene acceso, abre Inicio.
+2. **Inicio** — campana en el encabezado, listas agrupadas por categoría (punto en las que tienen cambios), botón "Nueva lista". La app abre directo en la última lista usada (con el campo de captura listo); Inicio queda a un toque. Si esa lista ya no existe o ya no tiene acceso, abre Inicio.
 3. **Lista** — campana en el encabezado, pestañas Comprar / Hacer, campo de captura, chips de tienda (solo Comprar), elementos pendientes y tachados, "Terminar compra" o "Archivar hechos" según la pestaña, acceso a historial y a compartir.
 4. **Historial de lista** — registros y su detalle.
 5. **Compartir / miembros** — link de invitación, miembros, invitaciones pendientes, salir.
 6. **Unirse** — destino del link de invitación.
 7. **Ajustes** — categorías, tiendas, exportar, cerrar sesión, versión.
 
-Diseño mobile-first; en escritorio basta con que se vea bien centrado.
+Diseño mobile-first; en escritorio basta con que se vea bien centrado. Diseño visual (colores, tipografía, componentes, movimiento): `DESIGN.md`, con shadcn/ui; el modo oscuro sigue la configuración del sistema.
 
 ## Modelo de datos (Firestore)
 
@@ -252,6 +252,7 @@ lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
 - Sin fotos en v1.
 - Respaldo exportado a una carpeta "tickoff" en Google Drive.
 - Aviso cuando se rechazan cambios hechos sin señal.
+- Diseño visual con shadcn/ui, minimalista y monocromático; tonos apagados permitidos para categorías.
 - Avisos de actividad: campana, aviso al abrir, punto en Inicio y resaltado; guardados en Firebase 30 días.
 - Catálogo de tiendas con una default.
 - Historial con posibilidad de revertir.
