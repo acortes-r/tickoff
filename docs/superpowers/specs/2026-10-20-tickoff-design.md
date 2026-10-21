@@ -166,12 +166,14 @@ Diferencia con F8 "volver a agregar": volver a agregar **copia** el producto a l
 ### F12. Actividad y avisos
 - Cada acción de un miembro deja un registro en la bitácora de la lista, en la misma escritura que el cambio.
 - Acciones que generan aviso: agregar, tachar/completar, terminar compra, archivar hechos, borrar elemento, alguien se unió, alguien salió. No generan aviso: editar cantidad/nota/tienda, mover de pestaña, destachar, deshacer.
+- Deshacer o reabrir una compra/archivado, o regresar su último elemento, borra el registro del historial y también su aviso de "terminó compra" / "archivó hechos": nadie ve un cierre que ya no existe.
 - Solo cuenta la actividad de **otros**; lo propio no genera avisos.
 - **Campana** (ícono) en el encabezado: contador de avisos no leídos; al abrirla muestra la actividad de todas las listas del usuario, más reciente primero, agrupada (ej. "Ana agregó 5 elementos a Despensa · hace 2 h": misma persona, misma acción, misma lista, dentro de 30 min). Abrir la campana marca todo como leído. Tocar un aviso abre esa lista.
 - **Al abrir la app:** si hay actividad de otros desde la última vez, aviso arriba por lista (ej. "Ana actualizó Despensa: 3 agregados, 2 tachados"); con más de 2 listas, un resumen "N listas con cambios".
 - **Inicio:** punto de color en listas con actividad de otros posterior a la última vez que el usuario abrió esa lista.
 - **Dentro de la lista:** elementos agregados por otros desde la última visita se resaltan unos segundos.
 - Se guardan 30 días. Sin servidor que limpie, la app borra los registros de más de 30 días de una lista cuando alguien la abre.
+- Al borrar una lista se borra también toda su bitácora.
 
 ## Pantallas
 
@@ -226,12 +228,14 @@ lists/{listId}/items/{itemId}
 lists/{listId}/history/{entryId}
   kind: "purchase" | "archive",
   closedAt, closedBy, closedByName,
+  activityId?,             // aviso de este cierre; se borra junto con el registro
   items: [{ itemId, name, quantity?, storeName?, note?, addedByName, doneByName }]
 
 lists/{listId}/activity/{activityId}
   type: "added" | "done" | "closed" | "archived" | "deleted" | "joined" | "left",
   actorUid, actorName, at,
-  itemName?, count?        // count para cerrar/archivar
+  itemName?, count?,       // count para cerrar/archivar
+  historyId?               // closed/archived: registro al que pertenece
 
 lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
   name, lastStoreName?, lastPurchasedAt?, timesPurchased
@@ -252,6 +256,7 @@ lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
 - Sin fotos en v1.
 - Respaldo exportado a una carpeta "tickoff" en Google Drive.
 - Aviso cuando se rechazan cambios hechos sin señal.
+- Deshacer o reabrir un cierre borra también su aviso.
 - No duplicar solo aplica a pendientes; un producto tachado se puede volver a agregar.
 - Diseño visual con shadcn/ui, minimalista y monocromático; tonos apagados permitidos para categorías.
 - Avisos de actividad: campana, aviso al abrir, punto en Inicio y resaltado; guardados en Firebase 30 días.
