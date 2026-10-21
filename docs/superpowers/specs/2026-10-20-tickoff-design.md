@@ -111,7 +111,7 @@ tickoff es una PWA (Android e iOS) de listas personales organizadas por categor�
 - Pestaña Comprar: nombre (obligatorio), cantidad (texto libre opcional, ej. "2 kg"), tienda.
   - Sin tienda elegida: la que ese producto tuvo la última vez en esa lista (`products.lastStoreName`); si es nuevo, la tienda default de quien lo agrega.
   - Autocompletado con productos ya usados en esa lista, sin distinguir mayúsculas ni acentos.
-  - Si el producto ya está pendiente en la lista, no se duplica: se avisa y se resalta el existente.
+  - Si el producto ya está pendiente en la lista, no se duplica: se avisa y se resalta el existente. Si solo está tachado, se agrega uno nuevo (comprarlo otra vez).
 - Pestaña Hacer: texto (obligatorio) y nota opcional.
 - Editar y borrar elementos.
 - Cambios de otros miembros se ven en vivo con la app abierta.
@@ -252,6 +252,7 @@ lists/{listId}/products/{normalizedName}   // solo buy; autocompletado
 - Sin fotos en v1.
 - Respaldo exportado a una carpeta "tickoff" en Google Drive.
 - Aviso cuando se rechazan cambios hechos sin señal.
+- No duplicar solo aplica a pendientes; un producto tachado se puede volver a agregar.
 - Diseño visual con shadcn/ui, minimalista y monocromático; tonos apagados permitidos para categorías.
 - Avisos de actividad: campana, aviso al abrir, punto en Inicio y resaltado; guardados en Firebase 30 días.
 - Catálogo de tiendas con una default.
