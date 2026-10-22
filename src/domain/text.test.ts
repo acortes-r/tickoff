@@ -19,6 +19,14 @@ describe('cleanName', () => {
     expect(cleanName('a'.repeat(201))).toBeNull()
   })
 
+  test.each([
+    ['a lone combining accent', '\u0301'],
+    ['a zero-width space', '\u200b'],
+    ['spaces around a zero-width joiner', ' \u200d '],
+  ])('rejects a name that looks blank: %s', (_label, input) => {
+    expect(cleanName(input)).toBeNull()
+  })
+
   test('accepts exactly 200 chars', () => {
     expect(cleanName('a'.repeat(200))).toBe('a'.repeat(200))
   })

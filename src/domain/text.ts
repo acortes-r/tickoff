@@ -9,10 +9,11 @@ export function normalizeName(s: string): string {
   return collapse(s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())
 }
 
-/** Nombre listo para guardar, o null si queda vacío o pasa de 200 caracteres. */
+/** Nombre listo para guardar, o null si se ve vacío o pasa de 200 caracteres. */
 export function cleanName(s: string): string | null {
   const name = collapse(s)
-  return name && name.length <= MAX_NAME ? name : null
+  const visible = normalizeName(name).replace(/[\p{Cf}\p{Z}]/gu, '')
+  return visible && name.length <= MAX_NAME ? name : null
 }
 
 /** Id de documento válido en Firestore para un nombre ya normalizado. */
