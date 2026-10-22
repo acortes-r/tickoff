@@ -1,5 +1,5 @@
 import { assertFails, assertSucceeds, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { asUser, getTestEnv, seed } from './setup'
 
 let env: RulesTestEnvironment
@@ -111,6 +111,19 @@ describe('owner', () => {
     )
   })
 
+  test('alice deletes her list with its items and invites in one batch', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'lists/shared/items/i1'), item)
+      await setDoc(doc(db, 'lists/shared/invites/t1'), { createdBy: 'alice' })
+    })
+    const db = asUser('alice')
+    const batch = writeBatch(db)
+    batch.delete(doc(db, 'lists/shared/items/i1'))
+    batch.delete(doc(db, 'lists/shared/invites/t1'))
+    batch.delete(doc(db, 'lists/shared'))
+    await assertSucceeds(batch.commit())
+  })
+
   test('alice cannot hand the list to bob', async () => {
     await assertFails(updateDoc(doc(asUser('alice'), 'lists/shared'), { ownerId: 'bob' }))
   })
@@ -131,6 +144,16 @@ describe('leaving', () => {
       updateDoc(doc(asUser('bob'), 'lists/shared'), {
         memberIds: ['bob'],
         'members.alice': deleteField(),
+      }),
+    )
+  })
+
+  test('bob cannot leave and rename in the same update', async () => {
+    await assertFails(
+      updateDoc(doc(asUser('bob'), 'lists/shared'), {
+        memberIds: ['alice'],
+        'members.bob': deleteField(),
+        name: 'Mía',
       }),
     )
   })

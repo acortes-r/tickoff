@@ -90,6 +90,14 @@ describe('read', () => {
     await assertFails(getDocs(collection(asUser('carol'), 'lists/shared/invites')))
   })
 
+  test('member bob cannot list invites', async () => {
+    await assertFails(getDocs(collection(asUser('bob'), 'lists/shared/invites')))
+  })
+
+  test('member bob cannot revoke an invite', async () => {
+    await assertFails(updateDoc(doc(asUser('bob'), 'lists/shared/invites/fresh'), { revoked: true }))
+  })
+
   test('alice lists her invites and revokes one', async () => {
     const db = asUser('alice')
     await assertSucceeds(getDocs(collection(db, 'lists/shared/invites')))
@@ -119,6 +127,36 @@ describe('join', () => {
 
   test('carol cannot list herself twice', async () => {
     await assertFails(join(asUser('carol'), 'carol', 'fresh', ['alice', 'bob', 'carol', 'carol']))
+  })
+
+  test.each(['alice', 'bob'])('%s, already in the list, cannot run the join batch', async (uid) => {
+    await assertFails(join(asUser(uid), uid, 'fresh', ['alice', 'bob']))
+  })
+
+  test('carol cannot join with a token that does not exist', async () => {
+    await assertFails(join(asUser('carol'), 'carol', 'nope'))
+  })
+
+  test('carol cannot mark an invite used without joining', async () => {
+    await assertFails(
+      updateDoc(doc(asUser('carol'), 'lists/shared/invites/fresh'), { usedBy: 'carol', usedAt: Timestamp.now() }),
+    )
+  })
+
+  test('using an invite cannot change its other fields', async () => {
+    const db = asUser('carol')
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'lists/shared/invites/fresh'), {
+      usedBy: 'carol',
+      usedAt: Timestamp.now(),
+      listName: 'Otra',
+    })
+    batch.update(doc(db, 'lists/shared'), {
+      memberIds: ['alice', 'bob', 'carol'],
+      'members.carol': member('Caro Prueba'),
+      joinToken: 'fresh',
+    })
+    await assertFails(batch.commit())
   })
 
   test('carol cannot add dave along with herself', async () => {
