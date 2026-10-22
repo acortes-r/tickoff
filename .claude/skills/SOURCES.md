@@ -11,6 +11,6 @@ Copiadas a mano desde su repo de origen y revisadas antes de entrar (sin acceso 
 
 ## Cambios respecto al origen
 
-- `ui-ux-pro-max`: sin `scripts/tests/` (algunos tests ejecutan scripts que encuentren en carpetas superiores). En `SKILL.md`, `${CLAUDE_PLUGIN_ROOT}/.claude/skills/...` cambió a `.claude/skills/...` (relativo a la raíz del repo) y `python` a `python3 -I`.
+- `ui-ux-pro-max`: sin `scripts/tests/` (algunos tests ejecutan scripts que encuentren en carpetas superiores). En `SKILL.md`, `${CLAUDE_PLUGIN_ROOT}/.claude/skills/...` cambió a `.claude/skills/...` (relativo a la raíz del repo) y `python` a `python3`.
 - `motion-framer`: solo `SKILL.md` y `references/api_reference.md`. Sin `scripts/` ni `assets/starter_motion/` (React 18 y framer-motion 11, no aplican a este repo).
 - `motion-framer`: la sección "Bundled Resources" de `SKILL.md` lista solo lo que sí se copió.
