@@ -17,5 +17,15 @@
   "ignorePatterns": [
     ".claude/**",
     "dist/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/components/ui/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
   ]
 }
