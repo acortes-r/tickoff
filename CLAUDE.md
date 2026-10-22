@@ -10,3 +10,8 @@ PWA de listas personales y compartidas (compras y pendientes). React 19 + Vite +
 
 ## Alcance
 - No implementes features hasta que el documento de diseño en `docs/superpowers/specs/` esté aprobado y se pida empezar.
+
+## Tests
+- `pnpm test`: unitarios (Vitest, jsdom), junto al código como `*.test.ts(x)`.
+- `pnpm test:emu`: reglas y datos contra los emuladores de Firebase; viven en `tests/emulator/`.
+- Desarrollo y tests usan el proyecto de emulador `demo-tickoff`; no hace falta un proyecto real de Firebase.
