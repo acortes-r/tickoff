@@ -25,3 +25,9 @@ export function asUser(uid: string, name?: string): Firestore {
     .authenticatedContext(uid, name ? { name } : undefined)
     .firestore() as unknown as Firestore
 }
+
+/** Escribe datos de prueba sin pasar por las reglas. */
+export async function seed(write: (db: Firestore) => Promise<void>): Promise<void> {
+  if (!env) throw new Error('call getTestEnv() first')
+  await env.withSecurityRulesDisabled((ctx) => write(ctx.firestore() as unknown as Firestore))
+}
