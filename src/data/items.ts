@@ -1,0 +1,97 @@
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  increment,
+  serverTimestamp,
+  updateDoc,
+  writeBatch,
+  type Firestore,
+} from 'firebase/firestore'
+import { cleanName, normalizeName, productDocId } from '@/domain/text'
+import type { ItemDoc, ItemKind } from './types'
+
+export interface Actor {
+  uid: string
+  name: string
+}
+
+export interface NewItem {
+  kind: ItemKind
+  name: string
+  quantity?: string
+  storeName?: string | null
+  note?: string
+}
+
+type ItemPatch = Partial<Pick<ItemDoc, 'name' | 'quantity' | 'storeName' | 'note' | 'kind'>>
+
+function requireName(name: string): string {
+  const clean = cleanName(name)
+  if (!clean) throw new Error('invalid-name')
+  return clean
+}
+
+/** Quita los campos sin valor: Firestore no acepta undefined. */
+function defined<T extends object>(data: T): Partial<T> {
+  return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as Partial<T>
+}
+
+/**
+ * Agrega un elemento pendiente. En Comprar también registra el producto de la
+ * lista (para autocompletar y sugerir tienda) sin tocar cuántas veces se compró.
+ */
+export async function addItem(db: Firestore, listId: string, by: Actor, input: NewItem): Promise<string> {
+  const name = requireName(input.name)
+  const normalizedName = normalizeName(name)
+  const itemRef = doc(collection(db, 'lists', listId, 'items'))
+  const batch = writeBatch(db)
+  batch.set(
+    itemRef,
+    defined({
+      kind: input.kind,
+      name,
+      normalizedName,
+      quantity: input.quantity?.trim() || undefined,
+      storeName: input.kind === 'buy' ? (input.storeName ?? null) : undefined,
+      note: input.note?.trim() || undefined,
+      status: 'pending',
+      addedBy: by.uid,
+      addedByName: by.name,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  )
+  if (input.kind === 'buy') {
+    batch.set(
+      doc(db, 'lists', listId, 'products', productDocId(normalizedName)),
+      { name, lastStoreName: input.storeName ?? null, timesPurchased: increment(0) },
+      { merge: true },
+    )
+  }
+  await batch.commit()
+  return itemRef.id
+}
+
+/** Solo los campos que cambian: otro miembro puede estar editando otro campo. */
+export function updateItem(db: Firestore, listId: string, itemId: string, patch: ItemPatch): Promise<void> {
+  const changes: Record<string, unknown> = { ...defined(patch), updatedAt: serverTimestamp() }
+  if (patch.name !== undefined) {
+    changes.name = requireName(patch.name)
+    changes.normalizedName = normalizeName(changes.name as string)
+  }
+  return updateDoc(doc(db, 'lists', listId, 'items', itemId), changes)
+}
+
+/** Tachar o destachar; guarda quién lo completó. */
+export function toggleItem(db: Firestore, listId: string, item: ItemDoc, by: Actor): Promise<void> {
+  const ref = doc(db, 'lists', listId, 'items', item.id)
+  return item.status === 'pending'
+    ? updateDoc(ref, { status: 'done', doneBy: by.uid, doneByName: by.name, updatedAt: serverTimestamp() })
+    : updateDoc(ref, { status: 'pending', doneBy: deleteField(), doneByName: deleteField(), updatedAt: serverTimestamp() })
+}
+
+export function deleteItem(db: Firestore, listId: string, itemId: string): Promise<void> {
+  return deleteDoc(doc(db, 'lists', listId, 'items', itemId))
+}

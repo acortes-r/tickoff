@@ -9,10 +9,13 @@ function initials(name: string): string {
 export function Avatar({
   name,
   photoURL,
+  label = name,
   className,
 }: {
   name: string
   photoURL?: string | null
+  /** Texto para lectores de pantalla; por default, el nombre. */
+  label?: string
   className?: string
 }) {
   const base = cn(
@@ -20,9 +23,9 @@ export function Avatar({
     className,
   )
   return photoURL ? (
-    <img src={photoURL} alt={name} title={name} className={base} referrerPolicy="no-referrer" />
+    <img src={photoURL} alt={label} title={label} className={base} referrerPolicy="no-referrer" />
   ) : (
-    <span role="img" aria-label={name} title={name} className={base}>
+    <span role="img" aria-label={label} title={label} className={base}>
       {initials(name)}
     </span>
   )

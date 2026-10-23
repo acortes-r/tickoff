@@ -76,10 +76,11 @@ Todos tienen los estados default, hover (solo con puntero fino), focus-visible, 
 
 | Componente | Primitivas |
 |---|---|
-| CaptureBar | `Input` + `Command` (autocompletado) |
+| CaptureBar | `Input` + sugerencias como `Button` `size="sm"` (autocompletado sin acentos; `Command` no ignora acentos) |
 | TabBar (Comprar / Hacer) | `Tabs` |
 | StoreChips | `Button` `size="sm"` (outline / default al estar activo) |
-| ItemRow | fila completa tocable + `Checkbox` |
+| ItemRow | fila completa tocable + `Checkbox`; resaltado de 1.5 s con `bg-muted` al señalar un duplicado |
+| ItemEditor | `Dialog` + `AlertDialog` para borrar |
 | NotificationBell | `Button` `size="icon"` + `Sheet` |
 | SyncBadge | `Badge` |
 | Chip de categoría | ícono lucide sobre `CATEGORY_TONES[n]` |

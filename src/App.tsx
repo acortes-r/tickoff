@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/hooks/useAuth'
 import CategoriesScreen from '@/screens/CategoriesScreen'
 import Home from '@/screens/Home'
+import ListScreen from '@/screens/ListScreen'
 import Login from '@/screens/Login'
 import Placeholder from '@/screens/Placeholder'
 import Settings from '@/screens/Settings'
@@ -35,7 +36,7 @@ function SignedIn() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/l/:listId" element={<Placeholder title="Lista" />} />
+      <Route path="/l/:listId" element={<ListScreen />} />
       <Route path="/l/:listId/history" element={<Placeholder title="Historial" />} />
       <Route path="/l/:listId/share" element={<Placeholder title="Compartir" />} />
       <Route path="/join/:listId/:token" element={<Placeholder title="Unirse a una lista" />} />
