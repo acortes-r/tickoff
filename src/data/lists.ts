@@ -13,13 +13,17 @@ import type { ItemKind, Member } from './types'
 const BATCH_LIMIT = 450
 const SUBCOLLECTIONS = ['items', 'history', 'products', 'invites']
 
-export async function createList(
+/**
+ * Crea la lista. El id se conoce antes de escribir, así la app la abre de
+ * inmediato aunque no haya señal; `written` se cumple cuando el servidor confirma.
+ */
+export function createList(
   db: Firestore,
   uid: string,
   member: Member,
   name: string,
   categoryId: string | null,
-): Promise<string> {
+): { id: string; written: Promise<void> } {
   const listRef = doc(collection(db, 'lists'))
   const batch = writeBatch(db)
   batch.set(listRef, {
@@ -30,8 +34,7 @@ export async function createList(
     createdAt: serverTimestamp(),
   })
   batch.set(doc(db, 'users', uid, 'listPrefs', listRef.id), { categoryId, lastTab: 'buy' })
-  await batch.commit()
-  return listRef.id
+  return { id: listRef.id, written: batch.commit() }
 }
 
 export function renameList(db: Firestore, listId: string, name: string): Promise<void> {

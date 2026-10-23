@@ -36,7 +36,8 @@ afterAll(() => env.cleanup())
 
 test('createList makes the owner the only member and writes listPrefs', async () => {
   const db = asUser('alice')
-  const id = await createList(db, 'alice', ana, 'Jardín', 'cat-jardin')
+  const { id, written } = createList(db, 'alice', ana, 'Jardín', 'cat-jardin')
+  await written
   const list = (await getDoc(doc(db, `lists/${id}`))).data()!
   expect(list).toMatchObject({ name: 'Jardín', ownerId: 'alice', memberIds: ['alice'], members: { alice: ana } })
   const prefs = (await getDoc(doc(db, `users/alice/listPrefs/${id}`))).data()!
@@ -45,7 +46,8 @@ test('createList makes the owner the only member and writes listPrefs', async ()
 
 test('renameList, setListCategory, setLastTab and setLastListId update their fields', async () => {
   const db = asUser('alice')
-  const id = await createList(db, 'alice', ana, 'Jardín', 'cat-jardin')
+  const { id, written } = createList(db, 'alice', ana, 'Jardín', 'cat-jardin')
+  await written
   await renameList(db, id, 'Jardín de atrás')
   await setListCategory(db, 'alice', id, null)
   await setLastTab(db, 'alice', id, 'do')
@@ -58,7 +60,8 @@ test('renameList, setListCategory, setLastTab and setLastListId update their fie
 
 test('deleteListCascade leaves nothing under the list', async () => {
   const db = asUser('alice')
-  const id = await createList(db, 'alice', ana, 'Despensa', null)
+  const { id, written } = createList(db, 'alice', ana, 'Despensa', null)
+  await written
   await seed(async (s) => {
     for (const n of [1, 2, 3]) {
       await setDoc(doc(s, `lists/${id}/items/i${n}`), { kind: 'buy', name: `Cosa ${n}`, status: 'pending' })

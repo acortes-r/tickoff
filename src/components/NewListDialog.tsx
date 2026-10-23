@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2Icon, PlusIcon } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +18,7 @@ import { createList } from '@/data/lists'
 import type { CategoryDoc, Member } from '@/data/types'
 import { cleanName } from '@/domain/text'
 import { db } from '@/firebase'
+import { showSaveError } from '@/lib/saveError'
 
 const NONE = 'none'
 const NAME_ERROR = 'Escribe un nombre de hasta 200 caracteres'
@@ -36,7 +37,6 @@ export function NewListDialog({
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
   const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
 
   const selected = categoryId ?? categories[0]?.id ?? NONE
 
@@ -49,21 +49,17 @@ export function NewListDialog({
     }
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault()
     const clean = cleanName(name)
     if (!clean) {
       setNameError(NAME_ERROR)
       return
     }
-    setPending(true)
-    try {
-      const id = await createList(db, uid, member, clean, selected === NONE ? null : selected)
-      reset(false)
-      navigate(`/l/${id}`)
-    } finally {
-      setPending(false)
-    }
+    const { id, written } = createList(db, uid, member, clean, selected === NONE ? null : selected)
+    written.catch(showSaveError)
+    reset(false)
+    navigate(`/l/${id}`)
   }
 
   return (
@@ -111,10 +107,7 @@ export function NewListDialog({
             </Field>
           </FieldGroup>
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending && <Loader2Icon className="animate-spin" data-icon="inline-start" />}
-              Crear lista
-            </Button>
+            <Button type="submit">Crear lista</Button>
           </DialogFooter>
         </form>
       </DialogContent>
