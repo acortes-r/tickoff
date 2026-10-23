@@ -50,3 +50,16 @@ test('after login the remembered invite link opens', async () => {
   expect(window.location.pathname).toBe('/join/l1/token123')
   expect(sessionStorage.getItem('tickoff.pendingJoin')).toBeNull()
 })
+
+test('a cold start on another screen keeps Home from jumping to the last list later', () => {
+  vi.mocked(useAuth).mockReturnValue(signedIn)
+  window.history.pushState({}, '', '/settings')
+  render(<App />)
+  expect(sessionStorage.getItem('tickoff.startedAt')).not.toBeNull()
+})
+
+test('a cold start on Home leaves the jump to Home', () => {
+  vi.mocked(useAuth).mockReturnValue(signedIn)
+  render(<App />)
+  expect(sessionStorage.getItem('tickoff.startedAt')).toBeNull()
+})

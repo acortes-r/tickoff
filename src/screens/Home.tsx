@@ -12,9 +12,7 @@ import { useListPrefs } from '@/hooks/useListPrefs'
 import { useLists } from '@/hooks/useLists'
 import { usePendingCounts } from '@/hooks/usePendingCounts'
 import { useUserDoc } from '@/hooks/useUserDoc'
-
-// Marca de que ya se abrió la app en esta sesión: solo el arranque en frío salta a la última lista.
-const STARTED_KEY = 'tickoff.startedAt'
+import { markStarted, STARTED_KEY } from '@/lib/session'
 
 function ListCard({ list }: { list: ListDoc }) {
   const counts = usePendingCounts(list.id)
@@ -54,7 +52,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!userDoc || lists === null || sessionStorage.getItem(STARTED_KEY)) return
-    sessionStorage.setItem(STARTED_KEY, String(Date.now()))
+    markStarted()
     const last = userDoc.lastListId
     if (last && lists.some((l) => l.id === last)) navigate(`/l/${last}`)
   }, [userDoc, lists, navigate])
