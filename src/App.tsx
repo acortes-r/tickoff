@@ -1,35 +1,74 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/hooks/useAuth'
+import Home from '@/screens/Home'
 import Login from '@/screens/Login'
+import Placeholder from '@/screens/Placeholder'
 
 // Solo en desarrollo: en el build de producción la rama se elimina con el chunk.
 const Showcase = import.meta.env.DEV ? lazy(() => import('./screens/Showcase')) : null
 
+// Link de invitación abierto sin sesión: se retoma después del login.
+const PENDING_JOIN_KEY = 'tickoff.pendingJoin'
+
+function SignedOut() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (pathname.startsWith('/join/')) sessionStorage.setItem(PENDING_JOIN_KEY, pathname)
+  }, [pathname])
+  return <Login />
+}
+
 function SignedIn() {
-  return <h1 className="mx-auto max-w-[480px] px-4 py-8 text-2xl font-semibold">tickoff</h1>
+  const navigate = useNavigate()
+  useEffect(() => {
+    const pending = sessionStorage.getItem(PENDING_JOIN_KEY)
+    if (!pending) return
+    sessionStorage.removeItem(PENDING_JOIN_KEY)
+    navigate(pending, { replace: true })
+  }, [navigate])
+
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/l/:listId" element={<Placeholder title="Lista" />} />
+      <Route path="/l/:listId/history" element={<Placeholder title="Historial" />} />
+      <Route path="/l/:listId/share" element={<Placeholder title="Compartir" />} />
+      <Route path="/join/:listId/:token" element={<Placeholder title="Unirse a una lista" />} />
+      <Route path="/settings" element={<Placeholder title="Ajustes" />} />
+      <Route path="/settings/categories" element={<Placeholder title="Categorías" />} />
+      <Route path="/settings/stores" element={<Placeholder title="Tiendas" />} />
+      <Route path="*" element={<Home />} />
+    </Routes>
+  )
+}
+
+function AppRoutes() {
+  const { user, loading } = useAuth()
+  const app = loading ? null : user ? <SignedIn /> : <SignedOut />
+
+  return (
+    <Routes>
+      {Showcase && (
+        <Route
+          path="/showcase"
+          element={
+            <Suspense>
+              <Showcase />
+            </Suspense>
+          }
+        />
+      )}
+      <Route path="*" element={app} />
+    </Routes>
+  )
 }
 
 function App() {
-  const { user, loading } = useAuth()
-  const home = loading ? null : user ? <SignedIn /> : <Login />
-
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="*" element={home} />
-        {Showcase && (
-          <Route
-            path="/showcase"
-            element={
-              <Suspense>
-                <Showcase />
-              </Suspense>
-            }
-          />
-        )}
-      </Routes>
+      <AppRoutes />
       <Toaster visibleToasts={2} />
     </BrowserRouter>
   )

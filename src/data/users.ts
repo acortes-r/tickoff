@@ -4,6 +4,7 @@ import {
   getDocFromCache,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   type Firestore,
 } from 'firebase/firestore'
 
@@ -75,4 +76,8 @@ export async function prepareUser(
   const cached = await getDocFromCache(doc(db, 'users', user.uid)).catch(() => null)
   if (cached?.exists()) return
   await setup(db, user)
+}
+
+export function setLastListId(db: Firestore, uid: string, listId: string | null): Promise<void> {
+  return updateDoc(doc(db, 'users', uid), { lastListId: listId })
 }
