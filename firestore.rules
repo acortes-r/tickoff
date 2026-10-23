@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function listPath(listId) {
+      return /databases/$(database)/documents/lists/$(listId);
+    }
+
+    function invitePath(listId, token) {
+      return /databases/$(database)/documents/lists/$(listId)/invites/$(token);
+    }
+
+    function isMember(listId) {
+      return signedIn() && me() in get(listPath(listId)).data.memberIds;
+    }
+
+    function isOwner(listId) {
+      return signedIn() && get(listPath(listId)).data.ownerId == me();
+    }
+
+    function validName(name) {
+      return name is string && name.size() >= 1 && name.size() <= 200;
+    }
+
+    // Datos personales: categorías, tiendas, preferencias por lista.
+    match /users/{userId}/{document=**} {
+      allow read, write: if signedIn() && me() == userId;
+    }
+
+    match /lists/{listId} {
+      function changed() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      function before() {
+        return resource.data;
+      }
+
+      function after() {
+        return request.resource.data;
+      }
+
+      // Solo cambia la entrada de `uid` dentro de `members`.
+      function onlyMemberEntry(uid) {
+        return after().members.diff(before().members).affectedKeys().hasOnly([uid]);
+      }
+
+      // El dueño renombra y saca miembros; nunca agrega ni se saca a sí mismo.
+      function ownerUpdate() {
+        return before().ownerId == me()
+          && changed().hasOnly(['name', 'members', 'memberIds'])
+          && validName(after().name)
+          && me() in after().memberIds
+          && before().memberIds.toSet().hasAll(after().memberIds)
+          && before().members.keys().toSet().hasAll(after().members.keys());
+      }
+
+      // Un miembro sale: se quita solo a sí mismo.
+      function leaveUpdate() {
+        return before().ownerId != me()
+          && me() in before().memberIds
+          && changed().hasOnly(['members', 'memberIds'])
+          && after().memberIds.toSet() == before().memberIds.toSet().difference([me()].toSet())
+          && after().memberIds.size() == before().memberIds.size() - 1
+          && !(me() in after().members)
+          && onlyMemberEntry(me());
+      }
+
+      // Alguien se une con una invitación vigente que usa en el mismo batch.
+      function joinUpdate() {
+        let token = after().joinToken;
+        let invite = get(invitePath(listId, token)).data;
+        return !(me() in before().memberIds)
+          && changed().hasOnly(['members', 'memberIds', 'joinToken'])
+          && token is string
+          && after().memberIds.toSet() == before().memberIds.toSet().union([me()].toSet())
+          && after().memberIds.size() == before().memberIds.size() + 1
+          && me() in after().members
+          && onlyMemberEntry(me())
+          && exists(invitePath(listId, token))
+          && !('usedBy' in invite)
+          && invite.get('revoked', false) != true
+          && invite.expiresAt > request.time
+          && getAfter(invitePath(listId, token)).data.usedBy == me();
+      }
+
+      allow read: if signedIn() && me() in resource.data.memberIds;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == me()
+        && request.resource.data.memberIds == [me()]
+        && validName(request.resource.data.name);
+      allow update: if signedIn() && (ownerUpdate() || leaveUpdate() || joinUpdate());
+      allow delete: if signedIn() && resource.data.ownerId == me();
+
+      match /invites/{token} {
+        function sevenDaysAfter(created, expires) {
+          return expires > created + duration.value(7, 'd') - duration.value(1, 'm')
+            && expires < created + duration.value(7, 'd') + duration.value(1, 'm');
+        }
+
+        // Quien abre el link: marca la invitación como usada al unirse.
+        function joinerUse() {
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy', 'usedAt'])
+            && request.resource.data.usedBy == me()
+            && !('usedBy' in resource.data)
+            && resource.data.get('revoked', false) != true
+            && resource.data.expiresAt > request.time
+            && me() in getAfter(listPath(listId)).data.memberIds;
+        }
+
+        function ownerRevoke() {
+          return isOwner(listId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked'])
+            && request.resource.data.revoked == true;
+        }
+
+        // Cualquiera con el token lee esa invitación (y solo esa) para la pantalla Unirse.
+        allow get: if signedIn();
+        allow list, delete: if isOwner(listId);
+        allow create: if isOwner(listId)
+          && request.resource.data.createdBy == me()
+          && sevenDaysAfter(request.resource.data.createdAt, request.resource.data.expiresAt);
+        allow update: if signedIn() && (ownerRevoke() || joinerUse());
+      }
+
+      match /items/{itemId} {
+        function validItem() {
+          let item = request.resource.data;
+          return item.kind in ['buy', 'do']
+            && item.status in ['pending', 'done', 'closed']
+            && validName(item.name);
+        }
+
+        allow read, delete: if isMember(listId);
+        allow create, update: if isMember(listId) && validItem();
+      }
+
+      match /history/{entryId} {
+        allow read, write: if isMember(listId);
+      }
+
+      match /products/{productId} {
+        allow read, write: if isMember(listId);
+      }
+    }
+  }
+}
