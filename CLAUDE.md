@@ -14,6 +14,7 @@ PWA de listas personales y compartidas (compras y pendientes). React 19 + Vite +
 ## Tests
 - `pnpm test`: unitarios (Vitest, jsdom), junto al código como `*.test.ts(x)`.
 - `pnpm test:emu`: reglas y datos contra los emuladores de Firebase; viven en `tests/emulator/`.
+- `pnpm test:e2e`: Playwright en `e2e/` (perfil Pixel 7) contra los emuladores, con Vite en el puerto 5174. Cada prueba limpia los emuladores y entra con `signIn` de `e2e/fixtures.ts`. Úsalo para probar flujos en el navegador sin esperar al usuario; las capturas quedan en `test-results/`.
 - Desarrollo y tests usan el proyecto de emulador `demo-tickoff`; no hace falta un proyecto real de Firebase.
 
 ## Diseño — jerarquía de fuentes
