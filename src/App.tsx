@@ -2,9 +2,12 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/hooks/useAuth'
+import CategoriesScreen from '@/screens/CategoriesScreen'
 import Home from '@/screens/Home'
 import Login from '@/screens/Login'
 import Placeholder from '@/screens/Placeholder'
+import Settings from '@/screens/Settings'
+import StoresScreen from '@/screens/StoresScreen'
 
 // Solo en desarrollo: en el build de producción la rama se elimina con el chunk.
 const Showcase = import.meta.env.DEV ? lazy(() => import('./screens/Showcase')) : null
@@ -36,9 +39,9 @@ function SignedIn() {
       <Route path="/l/:listId/history" element={<Placeholder title="Historial" />} />
       <Route path="/l/:listId/share" element={<Placeholder title="Compartir" />} />
       <Route path="/join/:listId/:token" element={<Placeholder title="Unirse a una lista" />} />
-      <Route path="/settings" element={<Placeholder title="Ajustes" />} />
-      <Route path="/settings/categories" element={<Placeholder title="Categorías" />} />
-      <Route path="/settings/stores" element={<Placeholder title="Tiendas" />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/settings/categories" element={<CategoriesScreen />} />
+      <Route path="/settings/stores" element={<StoresScreen />} />
       <Route path="*" element={<Home />} />
     </Routes>
   )

@@ -38,6 +38,26 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   tag: TagIcon,
 }
 
+/** Nombre en español de cada ícono, para lectores de pantalla. */
+export const CATEGORY_ICON_LABELS: Record<string, string> = {
+  'shopping-basket': 'Canasta',
+  briefcase: 'Portafolio',
+  sprout: 'Planta',
+  'paw-print': 'Huella',
+  house: 'Casa',
+  utensils: 'Cubiertos',
+  car: 'Auto',
+  wrench: 'Herramienta',
+  shirt: 'Ropa',
+  baby: 'Bebé',
+  pill: 'Medicina',
+  dumbbell: 'Ejercicio',
+  'book-open': 'Libro',
+  gift: 'Regalo',
+  heart: 'Corazón',
+  tag: 'Etiqueta',
+}
+
 export function categoryIcon(name: string): LucideIcon {
   return CATEGORY_ICONS[name] ?? TagIcon
 }
