@@ -2,6 +2,7 @@ import type {
   DocumentData,
   FirestoreDataConverter,
   QueryDocumentSnapshot,
+  SnapshotOptions,
   Timestamp,
 } from 'firebase/firestore'
 
@@ -117,15 +118,19 @@ export interface ProductDoc {
   timesPurchased: number
 }
 
-/** Convertidor que agrega el id del documento al leer y lo quita al escribir. */
+/**
+ * Convertidor que agrega el id del documento al leer y lo quita al escribir.
+ * Las fechas de servidor aún sin confirmar (sin señal o en camino) se leen
+ * estimadas en vez de null, así la UI puede ordenar por ellas.
+ */
 export function withId<T extends { id: string }>(): FirestoreDataConverter<T> {
   return {
     toFirestore(data) {
       const { id: _id, ...rest } = data as T
       return rest as DocumentData
     },
-    fromFirestore(snapshot: QueryDocumentSnapshot) {
-      return { id: snapshot.id, ...snapshot.data() } as T
+    fromFirestore(snapshot: QueryDocumentSnapshot, options?: SnapshotOptions) {
+      return { id: snapshot.id, ...snapshot.data({ ...options, serverTimestamps: 'estimate' }) } as T
     },
   }
 }

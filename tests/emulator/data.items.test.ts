@@ -1,7 +1,8 @@
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, disableNetwork, doc, getDoc, getDocsFromCache, setDoc } from 'firebase/firestore'
 import { addItem, deleteItem, toggleItem, updateItem } from '../../src/data/items'
-import type { ItemDoc } from '../../src/data/types'
+import { withId, type ItemDoc } from '../../src/data/types'
+import { sortItems } from '../../src/domain/items'
 import { asUser, getTestEnv, seed } from './setup'
 
 let env: RulesTestEnvironment
@@ -99,4 +100,17 @@ test('deleteItem removes it', async () => {
   const id = await addItem(asUser('alice'), 'shared', ana, { kind: 'buy', name: 'Pan' })
   await deleteItem(asUser('bob'), 'shared', id)
   expect((await getDoc(doc(asUser('alice'), `lists/shared/items/${id}`))).exists()).toBe(false)
+})
+
+test('items written without signal can be read and sorted before the server confirms them', async () => {
+  const db = asUser('alice')
+  await getDoc(doc(db, 'lists/shared'))
+  await disableNetwork(db)
+  void addItem(db, 'shared', ana, { kind: 'buy', name: 'Pan' })
+  void addItem(db, 'shared', ana, { kind: 'buy', name: 'Leche' })
+  const snap = await getDocsFromCache(collection(db, 'lists/shared/items').withConverter(withId<ItemDoc>()))
+  const items = snap.docs.map((d) => d.data())
+  expect(items).toHaveLength(2)
+  expect(items.every((i) => i.createdAt && i.updatedAt)).toBe(true)
+  expect(sortItems(items)).toHaveLength(2)
 })
