@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronDownIcon, RotateCcwIcon, Undo2Icon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -52,6 +52,14 @@ function Entry({
   const { listId = '' } = useParams()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
+  // Acción en curso (id de elemento o "reopen"): evita dobles toques. El ref
+  // cambia al instante; el estado deshabilita los botones.
+  const busyRef = useRef(false)
+  const [busy, setBusyState] = useState<string | null>(null)
+  const setBusy = (value: string | null) => {
+    busyRef.current = value !== null
+    setBusyState(value)
+  }
   const isPurchase = entry.kind === 'purchase'
   const count = entry.items.length
 
@@ -67,6 +75,8 @@ function Entry({
   }
 
   async function giveBack(item: HistoryItem) {
+    if (busyRef.current) return
+    setBusy(item.itemId)
     try {
       const result = await returnItem(db, listId, entry, item.itemId, current)
       result.written.catch(showSaveError)
@@ -78,6 +88,25 @@ function Entry({
       }
     } catch (err) {
       showSaveError(err)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function reopen() {
+    if (busyRef.current) return
+    setBusy('reopen')
+    try {
+      const result = await reopenEntry(db, listId, entry, current)
+      result.written.catch(showSaveError)
+      toast(isPurchase ? 'Compra reabierta' : 'Hechos reabiertos')
+      for (const dup of result.duplicates) {
+        toast(`${dup.name} ya estaba pendiente`, { action: { label: 'Ver', onClick: () => onShowInList(dup.existingId) } })
+      }
+    } catch (err) {
+      showSaveError(err)
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -128,6 +157,7 @@ function Entry({
                     size="icon"
                     aria-label={`Regresar ${item.name}`}
                     title="Regresar a la lista"
+                    disabled={busy !== null}
                     onClick={() => giveBack(item)}
                   >
                     <Undo2Icon />
@@ -140,14 +170,7 @@ function Entry({
             <Button size="sm" disabled={selected.length === 0} onClick={readd}>
               Volver a agregar{selected.length ? ` (${selected.length})` : ''}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                reopenEntry(db, listId, entry.id).catch(showSaveError)
-                toast(isPurchase ? 'Compra reabierta' : 'Hechos reabiertos')
-              }}
-            >
+            <Button size="sm" variant="outline" disabled={busy !== null} onClick={reopen}>
               <RotateCcwIcon data-icon="inline-start" />
               Reabrir
             </Button>

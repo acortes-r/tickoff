@@ -1,5 +1,5 @@
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, setDoc, Timestamp, type Firestore } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, Timestamp, type Firestore } from 'firebase/firestore'
 import { closeItems, readdItems, reopenEntry, returnItem, undoClose } from '../../src/data/history'
 import { addItem, toggleItem, updateItem, type Actor } from '../../src/data/items'
 import { withId, type HistoryEntryDoc, type ItemDoc } from '../../src/data/types'
@@ -198,10 +198,64 @@ describe('history actions', () => {
   test('reopenEntry brings every item back as done', async () => {
     const db = asUser('alice')
     const entry = await closedEntry(db, ['Leche', 'Pan'])
-    await reopenEntry(db, 'shared', entry.id)
+    await (await reopenEntry(db, 'shared', entry, await items(db))).written
     const all = await items(db)
     expect(all.map((i) => i.status)).toEqual(['done', 'done'])
     expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
+  })
+})
+
+describe('repeated and concurrent fixes', () => {
+  async function closedEntry(db: Firestore, names: string[]): Promise<HistoryEntryDoc> {
+    const done = []
+    for (const name of names) done.push(await addDone(db, 'buy', name))
+    const result = await closeItems(db, 'shared', ana, 'buy', done)
+    await result!.written
+    const snap = await getDoc(doc(db, `lists/shared/history/${result!.entryId}`).withConverter(withId<HistoryEntryDoc>()))
+    return snap.data()!
+  }
+  const idOf = (entry: HistoryEntryDoc, name: string) => entry.items.find((i) => i.name === name)!.itemId
+
+  test('returning the same item twice (double tap) counts it back only once', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    await (await returnItem(db, 'shared', entry, idOf(entry, 'Leche'), await items(db))).written
+    await (await returnItem(db, 'shared', entry, idOf(entry, 'Leche'), await items(db))).written
+    expect((await getDoc(doc(db, 'lists/shared/products/leche'))).data()!.timesPurchased).toBe(3)
+  })
+
+  test('two members returning from the same stale entry leave no orphan behind', async () => {
+    const alice = asUser('alice')
+    const entry = await closedEntry(alice, ['Leche', 'Pan'])
+    await addItem(alice, 'shared', ana, { kind: 'buy', name: 'Pan' })
+    const bob = asUser('bob')
+    await (await returnItem(bob, 'shared', entry, idOf(entry, 'Pan'), await items(bob))).written
+    // Alice todavía ve el registro con los dos elementos.
+    await (await returnItem(alice, 'shared', entry, idOf(entry, 'Leche'), await items(alice))).written
+    expect((await getDoc(doc(alice, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
+  })
+
+  test('reopening skips items whose doc is gone instead of failing', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    await seed((s) => deleteDoc(doc(s, `lists/shared/items/${idOf(entry, 'Pan')}`)))
+    await (await reopenEntry(db, 'shared', entry, await items(db))).written
+    const all = await items(db)
+    expect(all.map((i) => [i.name, i.status])).toEqual([['Leche', 'done']])
+    expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
+  })
+
+  test('reopening does not duplicate what is already pending', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    const pendingId = await addItem(db, 'shared', ana, { kind: 'buy', name: 'Leche' })
+    const result = await reopenEntry(db, 'shared', entry, await items(db))
+    await result.written
+    expect(result.duplicates).toEqual([{ name: 'Leche', existingId: pendingId }])
+    const all = await items(db)
+    expect(all.filter((i) => i.name === 'Leche').map((i) => i.status)).toEqual(['pending'])
+    expect(all.find((i) => i.name === 'Pan')!.status).toBe('done')
+    expect((await getDoc(doc(db, 'lists/shared/products/leche'))).data()!.timesPurchased).toBe(3)
   })
 })
 

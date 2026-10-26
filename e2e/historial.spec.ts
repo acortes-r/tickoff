@@ -62,3 +62,26 @@ test('returning something already pending points to the existing one', async ({ 
   await expect(page.getByRole('heading', { name: 'Despensa' })).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'Leche' })).toHaveCount(1)
 })
+
+test('a double tap on Regresar returns the item only once', async ({ page }) => {
+  await signIn(page, ANA)
+  await closePurchase(page, ['Leche', 'Pan'])
+  await openHistoryEntry(page)
+  await page.getByRole('button', { name: 'Regresar Leche' }).dblclick()
+  await expect(page.getByRole('button', { name: /Compra · 1 elemento/ })).toBeVisible()
+  await page.getByRole('link', { name: 'Despensa' }).click()
+  await expect(page.getByRole('checkbox', { name: 'Leche' })).toHaveCount(1)
+})
+
+test('reopening keeps what is already pending and points to it', async ({ page }) => {
+  await signIn(page, ANA)
+  await closePurchase(page, ['Leche', 'Pan'])
+  await add(page, 'Leche')
+  await openHistoryEntry(page)
+  await page.getByRole('button', { name: 'Reabrir' }).click()
+  await expect(page.getByText('Leche ya estaba pendiente')).toBeVisible()
+  await page.getByRole('link', { name: 'Despensa' }).click()
+  await expect(page.getByRole('checkbox', { name: 'Leche' })).toHaveCount(1)
+  await expect(page.getByRole('checkbox', { name: 'Leche' })).not.toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Pan' })).toBeChecked()
+})

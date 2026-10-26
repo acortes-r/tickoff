@@ -1,4 +1,5 @@
 import {
+  arrayRemove,
   collection,
   deleteField,
   doc,
@@ -139,27 +140,68 @@ export async function revertProducts(
   }
 }
 
-/** Deshacer un cierre: los elementos vuelven como tachados y el registro se borra. */
-export async function undoClose(db: Firestore, listId: string, entryId: string): Promise<void> {
-  const entryRef = doc(db, 'lists', listId, 'history', entryId)
-  const entry = (await getDoc(entryRef)).data() as Omit<HistoryEntryDoc, 'id'> | undefined
-  if (!entry) return
-
-  const batch = writeBatch(db)
-  for (const item of entry.items) {
-    batch.update(doc(db, 'lists', listId, 'items', item.itemId), {
-      status: 'done',
-      historyId: deleteField(),
-      updatedAt: serverTimestamp(),
-    })
-  }
-  await revertProducts(batch, db, listId, entry, entry.items)
-  batch.delete(entryRef)
-  await batch.commit()
+/**
+ * Ids de los elementos que siguen cerrados en este registro. Otro miembro pudo
+ * haber regresado o borrado alguno desde que se leyó el registro.
+ */
+async function stillClosedIn(db: Firestore, listId: string, entryId: string, items: HistoryItem[]): Promise<Set<string>> {
+  const snaps = await Promise.all(items.map((i) => getDoc(doc(db, 'lists', listId, 'items', i.itemId))))
+  return new Set(
+    snaps.filter((s) => s.exists() && s.get('status') === 'closed' && s.get('historyId') === entryId).map((s) => s.id),
+  )
 }
 
-/** Reabrir un cierre completo desde el historial: igual que deshacerlo. */
-export const reopenEntry = undoClose
+/**
+ * Devuelve a la lista, como tachados, los elementos del registro que siguen
+ * cerrados en él y borra el registro. Lo que ya está pendiente (`current`) no
+ * se duplica: se borra la copia cerrada y se reporta.
+ */
+async function restoreEntry(
+  db: Firestore,
+  listId: string,
+  entryId: string,
+  current: ItemDoc[],
+): Promise<{ duplicates: { name: string; existingId: string }[]; written: Promise<void> }> {
+  const entryRef = doc(db, 'lists', listId, 'history', entryId)
+  const entry = (await getDoc(entryRef)).data() as Omit<HistoryEntryDoc, 'id'> | undefined
+  if (!entry) return { duplicates: [], written: Promise.resolve() }
+
+  const closed = await stillClosedIn(db, listId, entryId, entry.items)
+  const valid = entry.items.filter((i) => closed.has(i.itemId))
+  const duplicates: { name: string; existingId: string }[] = []
+  const batch = writeBatch(db)
+  for (const item of valid) {
+    const ref = doc(db, 'lists', listId, 'items', item.itemId)
+    const existing = findDuplicate(current, item.kind, item.name)
+    if (existing) {
+      batch.delete(ref)
+      duplicates.push({ name: item.name, existingId: existing.id })
+    } else {
+      batch.update(ref, { status: 'done', historyId: deleteField(), updatedAt: serverTimestamp() })
+    }
+  }
+  await revertProducts(batch, db, listId, entry, valid)
+  batch.delete(entryRef)
+  return { duplicates, written: batch.commit() }
+}
+
+/** Deshacer un cierre recién hecho: los elementos vuelven como tachados y el registro se borra. */
+export async function undoClose(db: Firestore, listId: string, entryId: string): Promise<void> {
+  await (await restoreEntry(db, listId, entryId, [])).written
+}
+
+/**
+ * Reabrir un cierre desde el historial: como deshacer, pero respeta la regla de
+ * no duplicar (spec F9): lo que ya está pendiente se queda y se reporta.
+ */
+export function reopenEntry(
+  db: Firestore,
+  listId: string,
+  entry: Pick<HistoryEntryDoc, 'id'>,
+  current: ItemDoc[],
+): Promise<{ duplicates: { name: string; existingId: string }[]; written: Promise<void> }> {
+  return restoreEntry(db, listId, entry.id, current)
+}
 
 /**
  * Volver a agregar: copia los elementos elegidos del registro como pendientes
@@ -209,15 +251,18 @@ export async function returnItem(
   itemId: string,
   current: ItemDoc[],
 ): Promise<{ duplicateOf: string | null; written: Promise<void> }> {
-  const item = entry.items.find((i) => i.itemId === itemId)
-  if (!item) return { duplicateOf: null, written: Promise.resolve() }
+  const none = { duplicateOf: null, written: Promise.resolve() }
+  // Se relee el registro: otro miembro (o un doble toque) pudo haberlo cambiado.
+  const entryRef = doc(db, 'lists', listId, 'history', entry.id)
+  const fresh = (await getDoc(entryRef)).data() as Omit<HistoryEntryDoc, 'id'> | undefined
+  const item = fresh?.items.find((i) => i.itemId === itemId)
+  if (!fresh || !item) return none
+  if (!(await stillClosedIn(db, listId, entry.id, [item])).has(itemId)) return none
 
   const batch = writeBatch(db)
-  const entryRef = doc(db, 'lists', listId, 'history', entry.id)
-  const rest = entry.items.filter((i) => i.itemId !== itemId)
-  if (rest.length === 0) batch.delete(entryRef)
-  else batch.update(entryRef, { items: rest })
-  await revertProducts(batch, db, listId, entry, [item])
+  if (fresh.items.length === 1) batch.delete(entryRef)
+  else batch.update(entryRef, { items: arrayRemove(item) })
+  await revertProducts(batch, db, listId, fresh, [item])
 
   const itemRef = doc(db, 'lists', listId, 'items', itemId)
   const duplicate = findDuplicate(current, item.kind, item.name)
