@@ -204,3 +204,24 @@ describe('history actions', () => {
     expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
   })
 })
+
+test('closeItems uses the products the screen already has instead of reading them', async () => {
+  const db = asUser('alice')
+  const leche = await addDone(db, 'buy', 'Leche')
+  const known = [{ id: 'leche', name: 'Leche', timesPurchased: 3, lastPurchasedAt: Timestamp.fromMillis(Date.UTC(2026, 1, 1)) }]
+  const result = await closeItems(db, 'shared', ana, 'buy', [leche], known)
+  await result!.written
+  const entry = (await getDoc(doc(db, `lists/shared/history/${result!.entryId}`))).data()!
+  expect(entry.items[0].prevLastPurchasedAt).toEqual(known[0].lastPurchasedAt)
+})
+
+test('closing the same stale items twice (double tap) closes them only once', async () => {
+  const db = asUser('alice')
+  const leche = await addDone(db, 'buy', 'Leche')
+  const first = await closeItems(db, 'shared', ana, 'buy', [leche])
+  const second = await closeItems(db, 'shared', ana, 'buy', [leche])
+  await first!.written
+  expect(second).toBeNull()
+  expect((await getDocs(collection(db, 'lists/shared/history'))).size).toBe(1)
+  expect((await getDoc(doc(db, 'lists/shared/products/leche'))).data()!.timesPurchased).toBe(4)
+})

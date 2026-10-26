@@ -81,3 +81,13 @@ test('closing a purchase and undoing it work without signal', async ({ page, con
   await expect(page.getByRole('checkbox', { name: 'Tortillas' })).toBeChecked()
   await context.setOffline(false)
 })
+
+test('a double tap on Terminar compra closes the purchase only once', async ({ page }) => {
+  await signIn(page, ANA)
+  await add(page, 'Leche')
+  await page.getByRole('checkbox', { name: 'Leche' }).click()
+  await page.getByRole('button', { name: 'Terminar compra' }).dblclick()
+  await expect(page.getByText('Nada por comprar.')).toBeVisible()
+  await page.getByRole('link', { name: 'Historial' }).click()
+  await expect(page.getByRole('button', { name: /Compra · / })).toHaveCount(1)
+})

@@ -3,6 +3,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  getDocFromCache,
   increment,
   serverTimestamp,
   Timestamp,
@@ -13,7 +14,7 @@ import {
 import { findDuplicate } from '@/domain/items'
 import { normalizeName, productDocId } from '@/domain/text'
 import { defined, queueAddItem, type Actor } from './items'
-import type { HistoryEntryDoc, HistoryItem, ItemDoc, ItemKind } from './types'
+import type { HistoryEntryDoc, HistoryItem, ItemDoc, ItemKind, ProductDoc } from './types'
 
 const MAX_CLOSE = 400
 
@@ -32,6 +33,9 @@ async function readTimestamp(ref: ReturnType<typeof productRef>, field: string):
  * pestaña pasan a un registro del historial. Los elementos no se borran: quedan
  * `closed` con `historyId`, así una edición sin señal que llegue tarde no los revive.
  *
+ * `known` son los productos que la pantalla ya escucha en vivo: con ellos no
+ * hay que esperar al servidor (señal débil en el super). Los que falten se leen.
+ *
  * Devuelve el id del registro en cuanto la escritura está en camino (sirve sin
  * señal para ofrecer "Deshacer"); `written` se cumple cuando el servidor confirma.
  */
@@ -41,8 +45,15 @@ export async function closeItems(
   by: Actor,
   kind: ItemKind,
   items: ItemDoc[],
+  known: ProductDoc[] = [],
 ): Promise<{ entryId: string; written: Promise<void> } | null> {
-  const toClose = items.filter((i) => i.kind === kind && i.status === 'done')
+  const candidates = items.filter((i) => i.kind === kind && i.status === 'done')
+  // La caché local ya refleja un cierre recién hecho (aun sin señal): si un doble
+  // toque llega con la lista vieja, esos elementos ya no están tachados.
+  const current = await Promise.all(
+    candidates.map((i) => getDocFromCache(doc(db, 'lists', listId, 'items', i.id)).catch(() => null)),
+  )
+  const toClose = candidates.filter((_, n) => !current[n] || current[n]!.get('status') === 'done')
   if (toClose.length === 0) return null
   if (toClose.length > MAX_CLOSE) throw new Error('too-many')
 
@@ -52,10 +63,14 @@ export async function closeItems(
   // Fecha anterior de cada producto, para poder revertirla al deshacer.
   const prevByProduct = new Map<string, Timestamp | null>()
   if (kind === 'buy') {
-    for (const item of toClose) {
-      const ref = productRef(db, listId, item.name)
-      if (!prevByProduct.has(ref.id)) prevByProduct.set(ref.id, await readTimestamp(ref, 'lastPurchasedAt'))
-    }
+    const refs = new Map(toClose.map((item) => [productRef(db, listId, item.name).id, productRef(db, listId, item.name)]))
+    const knownById = new Map(known.map((p) => [p.id, p]))
+    await Promise.all(
+      [...refs].map(async ([id, ref]) => {
+        const product = knownById.get(id)
+        prevByProduct.set(id, product ? (product.lastPurchasedAt ?? null) : await readTimestamp(ref, 'lastPurchasedAt'))
+      }),
+    )
   }
 
   const snapshot: HistoryItem[] = toClose.map((item) =>

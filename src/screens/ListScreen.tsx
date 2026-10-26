@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { EllipsisIcon, HistoryIcon, UserPlusIcon } from 'lucide-react'
 import { Link, useLocation, useParams } from 'react-router'
 import { Avatar } from '@/components/Avatar'
@@ -113,6 +113,11 @@ export default function ListScreen() {
   const [renaming, setRenaming] = useState(false)
   const [categorizing, setCategorizing] = useState(false)
   const [storeFilter, setStoreFilter] = useState<string | null>(null)
+  // Evita que un doble toque cierre la misma compra dos veces. El ref cambia al
+  // instante (dos clics seguidos llegan antes de volver a renderizar); el estado
+  // deshabilita el botón.
+  const closingRef = useRef(false)
+  const [closing, setClosing] = useState(false)
 
   const activeTab = tab ?? prefs?.lastTab ?? 'buy'
   const by: Actor = { uid, name: userDoc?.displayName ?? user?.displayName ?? 'Sin nombre' }
@@ -160,8 +165,11 @@ export default function ListScreen() {
 
   // Cierra los tachados visibles (respeta el filtro de tienda) y ofrece deshacer.
   async function closeVisible() {
+    if (closingRef.current) return
+    closingRef.current = true
+    setClosing(true)
     try {
-      const result = await closeItems(db, listId, by, activeTab, doneVisible)
+      const result = await closeItems(db, listId, by, activeTab, doneVisible, products)
       if (!result) return
       result.written.catch(showSaveError)
       showUndoToast(activeTab === 'buy' ? 'Compra cerrada' : 'Hechos archivados', () =>
@@ -169,6 +177,9 @@ export default function ListScreen() {
       )
     } catch (err) {
       showSaveError(err)
+    } finally {
+      closingRef.current = false
+      setClosing(false)
     }
   }
   const members = Object.entries(list.members)
@@ -274,7 +285,7 @@ export default function ListScreen() {
 
       {doneVisible.length > 0 && (
         <div className="sticky bottom-4 flex justify-end pb-[env(safe-area-inset-bottom)]">
-          <Button size="lg" onClick={closeVisible}>
+          <Button size="lg" onClick={closeVisible} disabled={closing}>
             {activeTab === 'buy' ? 'Terminar compra' : 'Archivar hechos'}
           </Button>
         </div>
