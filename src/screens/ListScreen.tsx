@@ -7,6 +7,7 @@ import { ItemEditor } from '@/components/ItemEditor'
 import { ItemRow } from '@/components/ItemRow'
 import { NameDialog } from '@/components/NameDialog'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { StoreChips } from '@/components/StoreChips'
 import { TabBar } from '@/components/TabBar'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,11 +20,12 @@ import {
 } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { closeItems, undoClose } from '@/data/history'
 import { addItem, deleteItem, toggleItem, updateItem, type Actor } from '@/data/items'
 import { renameList, setLastTab, setListCategory } from '@/data/lists'
 import type { ItemDoc, ItemKind } from '@/data/types'
 import { setLastListId } from '@/data/users'
-import { sortItems, storeOptions as buildStoreOptions } from '@/domain/items'
+import { filterByStore, sortItems, storeChips, storeOptions as buildStoreOptions } from '@/domain/items'
 import { db } from '@/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { useCategories } from '@/hooks/useCategories'
@@ -34,6 +36,7 @@ import { useProducts } from '@/hooks/useProducts'
 import { useStores } from '@/hooks/useStores'
 import { useUserDoc } from '@/hooks/useUserDoc'
 import { showSaveError } from '@/lib/saveError'
+import { showUndoToast } from '@/lib/undoToast'
 
 const NONE = 'none'
 const HIGHLIGHT_MS = 1500
@@ -105,12 +108,20 @@ export default function ListScreen() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [categorizing, setCategorizing] = useState(false)
+  const [storeFilter, setStoreFilter] = useState<string | null>(null)
 
   const activeTab = tab ?? prefs?.lastTab ?? 'buy'
   const by: Actor = { uid, name: userDoc?.displayName ?? user?.displayName ?? 'Sin nombre' }
   const defaultStoreName = stores.find((s) => s.id === defaultStoreId)?.name ?? null
   const storeOptions = useMemo(() => buildStoreOptions(stores, items), [stores, items])
-  const visible = useMemo(() => sortItems(items.filter((i) => i.kind === activeTab)), [items, activeTab])
+  const chips = useMemo(() => storeChips(items), [items])
+  // Si la tienda filtrada ya no tiene nada, se vuelve a "Todas".
+  const activeFilter = activeTab === 'buy' && chips.some((c) => c.key === storeFilter) ? storeFilter : null
+  const visible = useMemo(
+    () => sortItems(filterByStore(items.filter((i) => i.kind === activeTab), activeFilter)),
+    [items, activeTab, activeFilter],
+  )
+  const doneVisible = visible.filter((i) => i.status === 'done')
   const counts = useMemo(
     () => ({
       buy: items.filter((i) => i.kind === 'buy' && i.status === 'pending').length,
@@ -142,6 +153,20 @@ export default function ListScreen() {
   }
 
   const isOwner = list.ownerId === uid
+
+  // Cierra los tachados visibles (respeta el filtro de tienda) y ofrece deshacer.
+  async function closeVisible() {
+    try {
+      const result = await closeItems(db, listId, by, activeTab, doneVisible)
+      if (!result) return
+      result.written.catch(showSaveError)
+      showUndoToast(activeTab === 'buy' ? 'Compra cerrada' : 'Hechos archivados', () =>
+        undoClose(db, listId, result.entryId).catch(showSaveError),
+      )
+    } catch (err) {
+      showSaveError(err)
+    }
+  }
   const members = Object.entries(list.members)
 
   return (
@@ -213,6 +238,8 @@ export default function ListScreen() {
         }}
       />
 
+      {activeTab === 'buy' && <StoreChips chips={chips} value={activeFilter} onChange={setStoreFilter} />}
+
       <CaptureBar
         kind={activeTab}
         items={items}
@@ -239,6 +266,14 @@ export default function ListScreen() {
             />
           ))}
         </ul>
+      )}
+
+      {doneVisible.length > 0 && (
+        <div className="sticky bottom-4 flex justify-end pb-[env(safe-area-inset-bottom)]">
+          <Button size="lg" onClick={closeVisible}>
+            {activeTab === 'buy' ? 'Terminar compra' : 'Archivar hechos'}
+          </Button>
+        </div>
       )}
 
       <ItemEditor

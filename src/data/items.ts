@@ -34,7 +34,7 @@ function requireName(name: string): string {
 }
 
 /** Quita los campos sin valor: Firestore no acepta undefined. */
-function defined<T extends object>(data: T): Partial<T> {
+export function defined<T extends object>(data: T): Partial<T> {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as Partial<T>
 }
 

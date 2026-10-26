@@ -32,3 +32,33 @@ export function storeOptions(own: StoreDoc[], items: ItemDoc[]): string[] {
   }
   return [...byKey.values()].sort((a, b) => a.localeCompare(b, 'es'))
 }
+
+export interface StoreChip {
+  key: string
+  label: string
+}
+
+/**
+ * Chips del modo super: una por tienda distinta entre lo que está por comprar
+ * (pendiente o tachado), sin distinguir mayúsculas ni acentos. La etiqueta es
+ * la forma de escribirla que más se repite.
+ */
+export function storeChips(items: ItemDoc[]): StoreChip[] {
+  const spellings = new Map<string, Map<string, number>>()
+  for (const item of items) {
+    if (item.kind !== 'buy' || item.status === 'closed' || !item.storeName) continue
+    const key = normalizeName(item.storeName)
+    const counts = spellings.get(key) ?? new Map<string, number>()
+    counts.set(item.storeName, (counts.get(item.storeName) ?? 0) + 1)
+    spellings.set(key, counts)
+  }
+  return [...spellings.entries()]
+    .map(([key, counts]) => ({ key, label: [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0] }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+}
+
+/** Elementos de la tienda elegida; null = todas. */
+export function filterByStore(items: ItemDoc[], chipKey: string | null): ItemDoc[] {
+  if (chipKey === null) return items
+  return items.filter((i) => i.storeName && normalizeName(i.storeName) === chipKey)
+}

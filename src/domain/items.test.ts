@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 import type { ItemDoc, ProductDoc, StoreDoc } from '@/data/types'
-import { findDuplicate, sortItems, storeOptions, suggestStore } from './items'
+import { filterByStore, findDuplicate, sortItems, storeChips, storeOptions, suggestStore } from './items'
 
 const t = (ms: number) => Timestamp.fromMillis(ms)
 let seq = 0
@@ -84,5 +84,41 @@ describe('storeOptions', () => {
       item({ kind: 'do', storeName: 'Oculta' }),
     ]
     expect(storeOptions([store('Walmart'), store('Super')], items)).toEqual(['Super', 'Tianguis', 'Walmart'])
+  })
+})
+
+describe('storeChips', () => {
+  test('one chip per store ignoring case and accents, labelled with the most common spelling', () => {
+    const items = [
+      item({ storeName: 'Walmart' }),
+      item({ storeName: 'walmart' }),
+      item({ storeName: 'WALMART', status: 'done' }),
+      item({ storeName: 'walmart' }),
+      item({ storeName: 'Mercado' }),
+      item({ storeName: null }),
+      item({ storeName: 'Cerrada', status: 'closed' }),
+      item({ kind: 'do', storeName: 'Oculta' }),
+    ]
+    expect(storeChips(items)).toEqual([
+      { key: 'mercado', label: 'Mercado' },
+      { key: 'walmart', label: 'walmart' },
+    ])
+  })
+})
+
+describe('filterByStore', () => {
+  const items = [
+    item({ id: 'a', storeName: 'Walmart' }),
+    item({ id: 'b', storeName: 'wálmart' }),
+    item({ id: 'c', storeName: 'Mercado' }),
+    item({ id: 'd', storeName: null }),
+  ]
+
+  test('keeps items whose store normalizes to the chip', () => {
+    expect(filterByStore(items, 'walmart').map((i) => i.id)).toEqual(['a', 'b'])
+  })
+
+  test('null means all stores', () => {
+    expect(filterByStore(items, null)).toHaveLength(4)
   })
 })
