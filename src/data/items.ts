@@ -8,6 +8,7 @@ import {
   updateDoc,
   writeBatch,
   type Firestore,
+  type WriteBatch,
 } from 'firebase/firestore'
 import { cleanName, normalizeName, productDocId } from '@/domain/text'
 import type { ItemDoc, ItemKind } from './types'
@@ -39,14 +40,14 @@ export function defined<T extends object>(data: T): Partial<T> {
 }
 
 /**
- * Agrega un elemento pendiente. En Comprar también registra el producto de la
- * lista (para autocompletar y sugerir tienda) sin tocar cuántas veces se compró.
+ * Agrega al batch un elemento pendiente y devuelve su id. En Comprar también
+ * registra el producto de la lista (autocompletar y tienda sugerida) sin tocar
+ * cuántas veces se compró.
  */
-export async function addItem(db: Firestore, listId: string, by: Actor, input: NewItem): Promise<string> {
+export function queueAddItem(batch: WriteBatch, db: Firestore, listId: string, by: Actor, input: NewItem): string {
   const name = requireName(input.name)
   const normalizedName = normalizeName(name)
   const itemRef = doc(collection(db, 'lists', listId, 'items'))
-  const batch = writeBatch(db)
   batch.set(
     itemRef,
     defined({
@@ -70,8 +71,15 @@ export async function addItem(db: Firestore, listId: string, by: Actor, input: N
       { merge: true },
     )
   }
-  await batch.commit()
   return itemRef.id
+}
+
+/** Agrega un elemento pendiente. */
+export async function addItem(db: Firestore, listId: string, by: Actor, input: NewItem): Promise<string> {
+  const batch = writeBatch(db)
+  const id = queueAddItem(batch, db, listId, by, input)
+  await batch.commit()
+  return id
 }
 
 /** Solo los campos que cambian: otro miembro puede estar editando otro campo. */

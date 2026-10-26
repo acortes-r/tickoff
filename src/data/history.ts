@@ -10,8 +10,9 @@ import {
   type Firestore,
   type WriteBatch,
 } from 'firebase/firestore'
+import { findDuplicate } from '@/domain/items'
 import { normalizeName, productDocId } from '@/domain/text'
-import { defined, type Actor } from './items'
+import { defined, queueAddItem, type Actor } from './items'
 import type { HistoryEntryDoc, HistoryItem, ItemDoc, ItemKind } from './types'
 
 const MAX_CLOSE = 400
@@ -140,4 +141,81 @@ export async function undoClose(db: Firestore, listId: string, entryId: string):
   await revertProducts(batch, db, listId, entry, entry.items)
   batch.delete(entryRef)
   await batch.commit()
+}
+
+/** Reabrir un cierre completo desde el historial: igual que deshacerlo. */
+export const reopenEntry = undoClose
+
+/**
+ * Volver a agregar: copia los elementos elegidos del registro como pendientes
+ * (para comprarlos otra vez). El registro no cambia. Lo que ya está pendiente
+ * no se duplica.
+ */
+export function readdItems(
+  db: Firestore,
+  listId: string,
+  by: Actor,
+  entry: HistoryEntryDoc,
+  itemIds: string[],
+  current: ItemDoc[],
+): { added: string[]; duplicates: string[]; written: Promise<void> } {
+  const added: string[] = []
+  const duplicates: string[] = []
+  const pending = [...current]
+  const batch = writeBatch(db)
+  for (const item of entry.items.filter((i) => itemIds.includes(i.itemId))) {
+    if (findDuplicate(pending, item.kind, item.name)) {
+      duplicates.push(item.name)
+      continue
+    }
+    queueAddItem(batch, db, listId, by, {
+      kind: item.kind,
+      name: item.name,
+      quantity: item.quantity,
+      storeName: item.storeName,
+      note: item.note,
+    })
+    added.push(item.name)
+    // Que dos copias del mismo producto en el registro no se agreguen dos veces.
+    pending.push({ kind: item.kind, status: 'pending', normalizedName: normalizeName(item.name) } as ItemDoc)
+  }
+  return { added, duplicates, written: added.length ? batch.commit() : Promise.resolve() }
+}
+
+/**
+ * Regresar: corrige un error sacando un elemento del registro (si queda vacío
+ * se borra) y devolviéndolo a la lista como pendiente. Si ya hay uno pendiente
+ * igual, se borra la copia cerrada y se devuelve el id del existente.
+ */
+export async function returnItem(
+  db: Firestore,
+  listId: string,
+  entry: HistoryEntryDoc,
+  itemId: string,
+  current: ItemDoc[],
+): Promise<{ duplicateOf: string | null; written: Promise<void> }> {
+  const item = entry.items.find((i) => i.itemId === itemId)
+  if (!item) return { duplicateOf: null, written: Promise.resolve() }
+
+  const batch = writeBatch(db)
+  const entryRef = doc(db, 'lists', listId, 'history', entry.id)
+  const rest = entry.items.filter((i) => i.itemId !== itemId)
+  if (rest.length === 0) batch.delete(entryRef)
+  else batch.update(entryRef, { items: rest })
+  await revertProducts(batch, db, listId, entry, [item])
+
+  const itemRef = doc(db, 'lists', listId, 'items', itemId)
+  const duplicate = findDuplicate(current, item.kind, item.name)
+  if (duplicate) {
+    batch.delete(itemRef)
+  } else {
+    batch.update(itemRef, {
+      status: 'pending',
+      historyId: deleteField(),
+      doneBy: deleteField(),
+      doneByName: deleteField(),
+      updatedAt: serverTimestamp(),
+    })
+  }
+  return { duplicateOf: duplicate?.id ?? null, written: batch.commit() }
 }

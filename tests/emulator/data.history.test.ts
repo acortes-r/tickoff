@@ -1,8 +1,8 @@
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { collection, doc, getDoc, getDocs, setDoc, Timestamp, type Firestore } from 'firebase/firestore'
-import { closeItems, undoClose } from '../../src/data/history'
+import { closeItems, readdItems, reopenEntry, returnItem, undoClose } from '../../src/data/history'
 import { addItem, toggleItem, updateItem, type Actor } from '../../src/data/items'
-import { withId, type ItemDoc } from '../../src/data/types'
+import { withId, type HistoryEntryDoc, type ItemDoc } from '../../src/data/types'
 import { asUser, getTestEnv, seed } from './setup'
 
 let env: RulesTestEnvironment
@@ -127,4 +127,80 @@ test('an edit landing on a closed item does not bring it back', async () => {
   await updateItem(asUser('bob'), 'shared', leche.id, { quantity: '2' })
   const after = (await items(db)).find((i) => i.id === leche.id)!
   expect(after).toMatchObject({ status: 'closed', quantity: '2' })
+})
+
+describe('history actions', () => {
+  async function closedEntry(db: Firestore, names: string[]): Promise<HistoryEntryDoc> {
+    const done = []
+    for (const name of names) done.push(await addDone(db, 'buy', name))
+    const result = await closeItems(db, 'shared', ana, 'buy', done)
+    await result!.written
+    const snap = await getDoc(doc(db, `lists/shared/history/${result!.entryId}`).withConverter(withId<HistoryEntryDoc>()))
+    return snap.data()!
+  }
+  const idOf = (entry: HistoryEntryDoc, name: string) => entry.items.find((i) => i.name === name)!.itemId
+
+  test('readdItems adds pending copies and leaves the entry intact', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    const result = readdItems(db, 'shared', ana, entry, [idOf(entry, 'Leche'), idOf(entry, 'Pan')], await items(db))
+    await result.written
+    expect(result.added).toEqual(['Leche', 'Pan'])
+    expect(result.duplicates).toEqual([])
+    const pending = (await items(db)).filter((i) => i.status === 'pending').map((i) => i.name).sort()
+    expect(pending).toEqual(['Leche', 'Pan'])
+    expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).data()!.items).toHaveLength(2)
+  })
+
+  test('readdItems skips what is already pending', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    await addItem(db, 'shared', ana, { kind: 'buy', name: 'leche' })
+    const result = readdItems(db, 'shared', ana, entry, [idOf(entry, 'Leche'), idOf(entry, 'Pan')], await items(db))
+    await result.written
+    expect(result.added).toEqual(['Pan'])
+    expect(result.duplicates).toEqual(['Leche'])
+    expect((await items(db)).filter((i) => i.status === 'pending')).toHaveLength(2)
+  })
+
+  test('returnItem takes one item out of the entry and back to pending', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    const result = await returnItem(db, 'shared', entry, idOf(entry, 'Leche'), await items(db))
+    await result.written
+    expect(result.duplicateOf).toBeNull()
+    const back = (await items(db)).find((i) => i.id === idOf(entry, 'Leche'))!
+    expect(back.status).toBe('pending')
+    expect(back).not.toHaveProperty('historyId')
+    expect(back).not.toHaveProperty('doneBy')
+    const left = (await getDoc(doc(db, `lists/shared/history/${entry.id}`))).data()!
+    expect(left.items.map((i: { name: string }) => i.name)).toEqual(['Pan'])
+    expect((await getDoc(doc(db, 'lists/shared/products/leche'))).data()!.timesPurchased).toBe(3)
+  })
+
+  test('returning the last item deletes the entry', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Pan'])
+    await (await returnItem(db, 'shared', entry, idOf(entry, 'Pan'), await items(db))).written
+    expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
+  })
+
+  test('returning something already pending deletes the closed copy and points to the pending one', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche'])
+    const pendingId = await addItem(db, 'shared', ana, { kind: 'buy', name: 'Leche' })
+    const result = await returnItem(db, 'shared', entry, idOf(entry, 'Leche'), await items(db))
+    await result.written
+    expect(result.duplicateOf).toBe(pendingId)
+    expect((await getDoc(doc(db, `lists/shared/items/${idOf(entry, 'Leche')}`))).exists()).toBe(false)
+  })
+
+  test('reopenEntry brings every item back as done', async () => {
+    const db = asUser('alice')
+    const entry = await closedEntry(db, ['Leche', 'Pan'])
+    await reopenEntry(db, 'shared', entry.id)
+    const all = await items(db)
+    expect(all.map((i) => i.status)).toEqual(['done', 'done'])
+    expect((await getDoc(doc(db, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
+  })
 })

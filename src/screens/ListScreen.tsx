@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { EllipsisIcon, HistoryIcon, UserPlusIcon } from 'lucide-react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { Avatar } from '@/components/Avatar'
 import { CaptureBar } from '@/components/CaptureBar'
 import { ItemEditor } from '@/components/ItemEditor'
@@ -104,7 +104,11 @@ export default function ListScreen() {
 
   const [tab, setTab] = useState<ItemKind | null>(null)
   const [editing, setEditing] = useState<ItemDoc | null>(null)
-  const [highlightId, setHighlightId] = useState<string | null>(null)
+  // Desde el historial se puede llegar señalando un elemento ya pendiente.
+  const location = useLocation()
+  const [highlightId, setHighlightId] = useState<string | null>(
+    (location.state as { highlight?: string } | null)?.highlight ?? null,
+  )
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [categorizing, setCategorizing] = useState(false)
