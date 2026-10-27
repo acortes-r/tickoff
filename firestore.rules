@@ -166,8 +166,10 @@ service cloud.firestore {
           && request.resource.data.at == request.time;
         // Se borra al podar (más de 30 días), al borrar la lista (dueño) o junto
         // con el registro del historial al deshacer/reabrir un cierre.
+        // Borrar uno que ya no existe (otro lo podó) no debe tumbar el batch.
         allow delete: if isMember(listId)
-          && (resource.data.at < request.time - duration.value(30, 'd')
+          && (resource == null
+            || resource.data.at < request.time - duration.value(30, 'd')
             || isOwner(listId)
             || closeNoticeOfDeletedEntry());
       }

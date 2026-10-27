@@ -119,3 +119,12 @@ test('a non-member cannot read activity', async () => {
   await assertFails(getDoc(doc(asUser('carol'), 'lists/shared/activity/new1')))
   await assertSucceeds(getDoc(doc(asUser('bob'), 'lists/shared/activity/new1')))
 })
+
+test('deleting a notice that is already gone (pruned) does not block a member', async () => {
+  const bob = asUser('bob')
+  await assertSucceeds(deleteDoc(doc(bob, 'lists/shared/activity/ya-no-existe')))
+  const batch = writeBatch(bob)
+  batch.delete(doc(bob, 'lists/shared/history/h1'))
+  batch.delete(doc(bob, 'lists/shared/activity/ya-no-existe'))
+  await assertSucceeds(batch.commit())
+})

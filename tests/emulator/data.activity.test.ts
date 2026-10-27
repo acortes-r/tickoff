@@ -1,7 +1,7 @@
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, setDoc, Timestamp, type Firestore } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, Timestamp, type Firestore } from 'firebase/firestore'
 import { markListSeen, markNotificationsRead, pruneActivity } from '../../src/data/activity'
-import { closeItems, returnItem, undoClose } from '../../src/data/history'
+import { closeItems, reopenEntry, returnItem, undoClose } from '../../src/data/history'
 import { addItem, deleteItem, toggleItem, updateItem, type Actor } from '../../src/data/items'
 import { createInvite, joinList, leaveList } from '../../src/data/sharing'
 import { withId, type ActivityDoc, type HistoryEntryDoc, type ItemDoc } from '../../src/data/types'
@@ -112,4 +112,14 @@ test('marking the bell read and the list seen store server dates', async () => {
   await markListSeen(db, 'alice', 'shared')
   expect((await getDoc(doc(db, 'users/alice'))).data()!.notificationsReadAt).toBeInstanceOf(Timestamp)
   expect((await getDoc(doc(db, 'users/alice/listPrefs/shared'))).data()!.lastSeenAt).toBeInstanceOf(Timestamp)
+})
+
+test('a member reopens an old purchase whose notice was already pruned', async () => {
+  const bob = asUser('bob')
+  const result = await closeItems(bob, 'shared', beto, 'buy', [await doneItem(bob, 'Leche')])
+  await result!.written
+  const entry = (await getDoc(doc(bob, `lists/shared/history/${result!.entryId}`).withConverter(withId<HistoryEntryDoc>()))).data()!
+  await seed((s) => deleteDoc(doc(s, `lists/shared/activity/${entry.activityId}`)))
+  await (await reopenEntry(bob, 'shared', entry, [])).written
+  expect((await getDoc(doc(bob, `lists/shared/history/${entry.id}`))).exists()).toBe(false)
 })
