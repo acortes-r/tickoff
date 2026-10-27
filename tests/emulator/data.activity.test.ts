@@ -87,7 +87,8 @@ test('returning the last item of a close removes its notice', async () => {
 
 test('joining and leaving leave notices', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, { id: 'shared', name: 'Despensa' }, { uid: 'alice', displayName: 'Ana Prueba', photoURL: null })
+  const { token, written } = createInvite(alice, { id: 'shared', name: 'Despensa' }, { uid: 'alice', displayName: 'Ana Prueba', photoURL: null })
+  await written
   const carol = asUser('carol')
   await joinList(carol, { uid: 'carol', displayName: 'Caro Prueba', photoURL: null }, 'shared', token)
   await leaveList(carol, 'carol', 'shared', 'Caro Prueba')

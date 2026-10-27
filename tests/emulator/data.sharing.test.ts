@@ -41,7 +41,8 @@ afterAll(() => env.cleanup())
 
 test('an invite lets carol see the list name and owner, then join', async () => {
   const alice = asUser('alice')
-  const { token, url } = await createInvite(alice, await list(alice), ana)
+  const { token, url, written } = createInvite(alice, await list(alice), ana)
+  await written
   expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/)
   expect(url).toContain(`/join/shared/${token}`)
 
@@ -58,7 +59,8 @@ test('an invite lets carol see the list name and owner, then join', async () => 
 
 test('an invite works once', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, await list(alice), ana)
+  const { token, written } = createInvite(alice, await list(alice), ana)
+  await written
   await joinList(asUser('carol'), caro, 'shared', token)
   await expect(joinList(asUser('dave'), dani, 'shared', token)).rejects.toThrow()
   expect((await getInviteStatus(asUser('dave'), 'dave', 'shared', token)).status).toBe('used')
@@ -66,7 +68,8 @@ test('an invite works once', async () => {
 
 test('a revoked invite reports revoked', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, await list(alice), ana)
+  const { token, written } = createInvite(alice, await list(alice), ana)
+  await written
   await revokeInvite(alice, 'shared', token)
   expect((await getInviteStatus(asUser('carol'), 'carol', 'shared', token)).status).toBe('revoked')
 })
@@ -91,13 +94,15 @@ test('a random token reports not-found', async () => {
 
 test('the owner opening the link reports already-member', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, await list(alice), ana)
+  const { token, written } = createInvite(alice, await list(alice), ana)
+  await written
   expect((await getInviteStatus(alice, 'alice', 'shared', token)).status).toBe('already-member')
 })
 
 test('removeMember takes carol out', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, await list(alice), ana)
+  const { token, written } = createInvite(alice, await list(alice), ana)
+  await written
   await joinList(asUser('carol'), caro, 'shared', token)
   await removeMember(alice, 'shared', 'carol')
   await expect(getDoc(doc(asUser('carol'), 'lists/shared/items/i1'))).rejects.toThrow()
@@ -108,7 +113,8 @@ test('removeMember takes carol out', async () => {
 
 test('leaveList takes carol out and cleans her prefs and last list', async () => {
   const alice = asUser('alice')
-  const { token } = await createInvite(alice, await list(alice), ana)
+  const { token, written } = createInvite(alice, await list(alice), ana)
+  await written
   const carol = asUser('carol')
   await joinList(carol, caro, 'shared', token)
   await setDoc(doc(carol, 'users/carol'), { displayName: 'Caro Prueba', lastListId: 'shared' })
@@ -120,6 +126,6 @@ test('leaveList takes carol out and cleans her prefs and last list', async () =>
 
 test('the owner can list her pending invites', async () => {
   const alice = asUser('alice')
-  await createInvite(alice, await list(alice), ana)
+  await createInvite(alice, await list(alice), ana).written
   expect((await getDocs(collection(alice, 'lists/shared/invites'))).size).toBe(1)
 })

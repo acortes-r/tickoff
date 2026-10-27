@@ -35,16 +35,20 @@ function newToken(): string {
 /**
  * Link de invitación de un solo uso que vence en 7 días. Copia el nombre de la
  * lista y del dueño para mostrarlos en "Unirse" sin dar acceso a la lista.
+ *
+ * El token se genera aquí, así el link existe al instante: en iOS el menú de
+ * compartir debe abrirse en el mismo toque, sin esperar al servidor. `written`
+ * se cumple cuando la invitación queda guardada.
  */
-export async function createInvite(
+export function createInvite(
   db: Firestore,
   list: Pick<ListDoc, 'id' | 'name'>,
   owner: Person,
   origin: string = typeof location === 'undefined' ? '' : location.origin,
-): Promise<{ token: string; url: string }> {
+): { token: string; url: string; written: Promise<void> } {
   const token = newToken()
   const now = Date.now()
-  await setDoc(doc(db, 'lists', list.id, 'invites', token), {
+  const written = setDoc(doc(db, 'lists', list.id, 'invites', token), {
     createdBy: owner.uid,
     createdAt: Timestamp.fromMillis(now),
     expiresAt: Timestamp.fromMillis(now + INVITE_DAYS * DAY_MS),
@@ -52,7 +56,7 @@ export async function createInvite(
     ownerName: owner.displayName,
     ownerPhotoURL: owner.photoURL,
   })
-  return { token, url: `${origin}/join/${list.id}/${token}` }
+  return { token, url: `${origin}/join/${list.id}/${token}`, written }
 }
 
 /** Qué mostrar en la pantalla Unirse. Solo los miembros pueden leer la lista. */

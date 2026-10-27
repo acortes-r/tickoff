@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react'
-import { CopyIcon, Loader2Icon, LogOutIcon, ShareIcon, Trash2Icon, UserMinusIcon, XIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { CopyIcon, LogOutIcon, ShareIcon, Trash2Icon, UserMinusIcon, XIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { Avatar } from '@/components/Avatar'
@@ -82,8 +82,6 @@ export default function ShareScreen() {
   const list = useList(listId)
   const isOwner = list?.ownerId === uid
   const invites = useInvites(listId, isOwner)
-  const [sharing, setSharing] = useState(false)
-  const sharingRef = useRef(false)
 
   if (list === undefined) return null
   if (list === null) {
@@ -99,31 +97,26 @@ export default function ShareScreen() {
     a === list.ownerId ? -1 : b === list.ownerId ? 1 : 0,
   )
 
-  async function share() {
-    if (sharingRef.current) return
-    sharingRef.current = true
-    setSharing(true)
-    try {
-      const owner = {
-        uid,
-        displayName: userDoc?.displayName ?? user?.displayName ?? 'Sin nombre',
-        photoURL: user?.photoURL ?? null,
-      }
-      const { url } = await createInvite(db, list!, owner)
-      const text = `${owner.displayName} te invita a la lista “${list!.name}” en tickoff`
-      if (navigator.share) {
-        await navigator.share({ title: list!.name, text, url }).catch((err: Error) => {
-          // Cerrar el menú de compartir no es un error; si falla de otra forma, se copia.
-          if (err.name !== 'AbortError') return copyLink(url)
-        })
-      } else {
-        await copyLink(url)
-      }
-    } catch (err) {
-      showSaveError(err)
-    } finally {
-      sharingRef.current = false
-      setSharing(false)
+  // Todo en el mismo toque: iOS solo deja abrir compartir o copiar dentro del gesto.
+  function share() {
+    const owner = {
+      uid,
+      displayName: userDoc?.displayName ?? user?.displayName ?? 'Sin nombre',
+      photoURL: user?.photoURL ?? null,
+    }
+    const { url, written } = createInvite(db, list!, owner)
+    written.catch((err) => {
+      console.error(err)
+      toast.error('No se pudo crear la invitación. Inténtalo otra vez.')
+    })
+    const text = `${owner.displayName} te invita a la lista “${list!.name}” en tickoff`
+    if (navigator.share) {
+      navigator.share({ title: list!.name, text, url }).catch((err: Error) => {
+        // Cerrar el menú de compartir no es un error; si falla de otra forma, se copia.
+        if (err.name !== 'AbortError') void copyLink(url)
+      })
+    } else {
+      void copyLink(url)
     }
   }
 
@@ -136,8 +129,8 @@ export default function ShareScreen() {
           <p className="text-sm text-muted-foreground">
             Manda un link para que alguien se una a “{list.name}”. Sirve una sola vez y vence en 7 días.
           </p>
-          <Button size="lg" className="self-start" onClick={share} disabled={sharing}>
-            {sharing ? <Loader2Icon className="animate-spin" data-icon="inline-start" /> : <ShareIcon data-icon="inline-start" />}
+          <Button size="lg" className="self-start" onClick={share}>
+            <ShareIcon data-icon="inline-start" />
             Compartir
           </Button>
         </section>
