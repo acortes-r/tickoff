@@ -60,3 +60,22 @@ test('undoing a purchase removes its notice', async ({ page, browser }) => {
   await beto.getByRole('button', { name: 'Deshacer' }).click()
   await expect(page.getByText('Beto Prueba terminó una compra de 1 elemento en Despensa')).toBeHidden()
 })
+
+test('only what others added since my last visit is highlighted', async ({ page, browser }) => {
+  await signIn(page, ANA)
+  const beto = await joinWith(browser, await inviteLink(page))
+  await addItemNamed(beto, 'Leche')
+  const row = page.locator('li').filter({ has: page.getByRole('checkbox', { name: 'Leche' }) })
+
+  await page.goto('/')
+  await page.getByRole('link', { name: /Despensa/ }).click()
+  await expect(row).toHaveClass(/bg-muted/)
+  await page.waitForTimeout(1500)
+  await page.getByRole('link', { name: 'Inicio' }).click()
+
+  await page.getByRole('link', { name: /Despensa/ }).click()
+  await expect(page.getByRole('checkbox', { name: 'Leche' })).toBeVisible()
+  await page.waitForTimeout(500)
+  // Lectura puntual: un toHaveClass reintentaría hasta que el resaltado (4 s) se apague solo.
+  expect(await row.getAttribute('class')).not.toContain('bg-muted')
+})

@@ -33,7 +33,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCategories } from '@/hooks/useCategories'
 import { useItems } from '@/hooks/useItems'
 import { useList } from '@/hooks/useList'
-import { useListPrefs } from '@/hooks/useListPrefs'
+import { useListPrefsState } from '@/hooks/useListPrefs'
 import { useProducts } from '@/hooks/useProducts'
 import { useStores } from '@/hooks/useStores'
 import { useUserDoc } from '@/hooks/useUserDoc'
@@ -105,7 +105,8 @@ export default function ListScreen() {
   const list = useList(listId)
   const items = useItems(listId)
   const products = useProducts(listId)
-  const prefs = useListPrefs(uid)[listId]
+  const { prefs: allPrefs, loaded: prefsLoaded } = useListPrefsState(uid)
+  const prefs = allPrefs[listId]
   const { stores, defaultStoreId } = useStores(uid)
 
   const [tab, setTab] = useState<ItemKind | null>(null)
@@ -168,14 +169,21 @@ export default function ListScreen() {
     }
   }, [uid, listId])
 
-  // Última visita, tomada al abrir: lo agregado por otros después se resalta.
-  const [seenAt] = useState(() => prefs?.lastSeenAt?.toMillis() ?? 0)
+  // Última visita, tomada una vez cuando cargan las preferencias: lo que otros
+  // agregaron después se resalta unos segundos.
+  const [seenAt, setSeenAt] = useState<number | null>(null)
+  useEffect(() => {
+    // eslint-disable-next-line react/set-state-in-effect
+    if (prefsLoaded && seenAt === null) setSeenAt(prefs?.lastSeenAt?.toMillis() ?? 0)
+  }, [prefsLoaded, seenAt, prefs])
   const [freshOver, setFreshOver] = useState(false)
   useEffect(() => {
+    if (seenAt === null) return
     const timer = setTimeout(() => setFreshOver(true), FRESH_MS)
     return () => clearTimeout(timer)
-  }, [])
-  const isFresh = (item: ItemDoc) => !freshOver && item.addedBy !== uid && item.createdAt.toMillis() > seenAt
+  }, [seenAt])
+  const isFresh = (item: ItemDoc) =>
+    seenAt !== null && !freshOver && item.addedBy !== uid && item.createdAt.toMillis() > seenAt
 
   useEffect(() => {
     if (!highlightId) return
