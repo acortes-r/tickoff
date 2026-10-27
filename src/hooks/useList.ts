@@ -2,6 +2,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { withId, type ListDoc } from '@/data/types'
 import { db } from '@/firebase'
+import { listenWithRetry } from '@/lib/retryListener'
 
 /** La lista en vivo: undefined mientras carga, null si no existe o ya no hay acceso. */
 export function useList(listId: string): ListDoc | null | undefined {
@@ -9,9 +10,14 @@ export function useList(listId: string): ListDoc | null | undefined {
 
   useEffect(
     () =>
-      onSnapshot(
-        doc(db, 'lists', listId).withConverter(withId<ListDoc>()),
-        (snap) => setState({ id: listId, list: snap.data() ?? null }),
+      listenWithRetry(
+        (onError) =>
+          onSnapshot(
+            doc(db, 'lists', listId).withConverter(withId<ListDoc>()),
+            (snap) => setState({ id: listId, list: snap.data() ?? null }),
+            onError,
+          ),
+        // Sin acceso (o ya no existe) después de reintentar.
         () => setState({ id: listId, list: null }),
       ),
     [listId],

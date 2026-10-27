@@ -58,6 +58,11 @@ test('a new list opens right away and shows up on Home', async ({ page }) => {
   await page.getByLabel('Nombre').fill('Jardín')
   await page.getByRole('button', { name: 'Crear lista' }).click()
   await expect(page.getByRole('heading', { name: 'Jardín' })).toBeVisible()
+  // Recién creada (el servidor aún puede no tenerla): agregar debe verse igual.
+  const capture = page.getByRole('textbox', { name: 'Agregar' })
+  await capture.fill('Tierra')
+  await capture.press('Enter')
+  await expect(page.getByRole('checkbox', { name: 'Tierra' })).toBeVisible()
   await page.getByRole('link', { name: 'Inicio' }).click()
   await expect(page.getByRole('link', { name: /Jardín/ })).toBeVisible()
   await page.screenshot({ path: 'test-results/screens/home.png', fullPage: true })

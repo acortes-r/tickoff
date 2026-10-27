@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { withId, type ActivityDoc, type ListDoc } from '@/data/types'
 import type { ListActivity } from '@/domain/activity'
 import { db } from '@/firebase'
+import { listenWithRetry } from '@/lib/retryListener'
 
 const KEEP_MS = 30 * 24 * 60 * 60 * 1000
 const PER_LIST = 100
@@ -25,18 +26,22 @@ export function ActivityProvider({ lists, children }: { lists: ListDoc[] | null;
     if (!lists) return
     const since = Timestamp.fromMillis(Date.now() - KEEP_MS)
     const unsubscribes = lists.map((list) =>
-      onSnapshot(
-        query(
-          collection(db, 'lists', list.id, 'activity'),
-          where('at', '>', since),
-          orderBy('at', 'desc'),
-          limit(PER_LIST),
-        ).withConverter(withId<ActivityDoc>()),
-        (snap) =>
-          setByList((prev) => ({
-            ...prev,
-            [list.id]: snap.docs.map((d) => ({ ...d.data(), listId: list.id, listName: list.name })),
-          })),
+      listenWithRetry(
+        (onError) =>
+          onSnapshot(
+            query(
+              collection(db, 'lists', list.id, 'activity'),
+              where('at', '>', since),
+              orderBy('at', 'desc'),
+              limit(PER_LIST),
+            ).withConverter(withId<ActivityDoc>()),
+            (snap) =>
+              setByList((prev) => ({
+                ...prev,
+                [list.id]: snap.docs.map((d) => ({ ...d.data(), listId: list.id, listName: list.name })),
+              })),
+            onError,
+          ),
         () => setByList((prev) => ({ ...prev, [list.id]: [] })),
       ),
     )
