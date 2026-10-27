@@ -79,3 +79,30 @@ test('only what others added since my last visit is highlighted', async ({ page,
   // Lectura puntual: un toHaveClass reintentaría hasta que el resaltado (4 s) se apague solo.
   expect(await row.getAttribute('class')).not.toContain('bg-muted')
 })
+
+test('jumping from one list to another through the bell opens the other list fresh', async ({ page, browser }) => {
+  await signIn(page, ANA)
+  const beto = await joinWith(browser, await inviteLink(page))
+
+  // Ana crea "Casa", invita a Beto y él agrega algo ahí.
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Nueva lista' }).click()
+  await page.getByLabel('Nombre').fill('Casa')
+  await page.getByRole('button', { name: 'Crear lista' }).click()
+  await expect(page.getByRole('heading', { name: 'Casa' })).toBeVisible()
+  const casaUrl = await inviteLink(page)
+  await beto.goto(casaUrl)
+  await beto.getByRole('button', { name: 'Unirme' }).click()
+  await expect(beto.getByRole('heading', { name: 'Casa' })).toBeVisible()
+  await addItemNamed(beto, 'Focos')
+
+  // Ana está en Despensa, en la pestaña Hacer, y salta a Casa desde la campana.
+  await page.goto('/')
+  await page.getByRole('link', { name: /Despensa/ }).click()
+  await page.getByRole('tab', { name: /Hacer/ }).click()
+  await page.getByRole('button', { name: /Avisos/ }).click()
+  await page.getByText('Beto Prueba agregó Focos a Casa').click()
+  await expect(page.getByRole('heading', { name: 'Casa' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /Comprar/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('checkbox', { name: 'Focos' })).toBeVisible()
+})

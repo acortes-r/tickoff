@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { BrowserRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import { ActivityBanner } from '@/components/ActivityBanner'
 import { Toaster } from '@/components/ui/sonner'
 import { ActivityProvider } from '@/hooks/useActivity'
@@ -19,6 +19,12 @@ import StoresScreen from '@/screens/StoresScreen'
 // Solo en desarrollo: en el build de producción la rama se elimina con el chunk.
 const Showcase = import.meta.env.DEV ? lazy(() => import('./screens/Showcase')) : null
 
+
+/** Otra lista = pantalla nueva (pestaña, filtro y resaltados no pasan de una lista a otra). */
+function KeyedListScreen() {
+  const { listId } = useParams()
+  return <ListScreen key={listId} />
+}
 
 function SignedOut() {
   const { pathname } = useLocation()
@@ -52,7 +58,7 @@ function SignedIn() {
       <ActivityBanner />
       <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/l/:listId" element={<ListScreen />} />
+      <Route path="/l/:listId" element={<KeyedListScreen />} />
       <Route path="/l/:listId/history" element={<HistoryScreen />} />
       <Route path="/l/:listId/share" element={<ShareScreen />} />
       <Route path="/join/:listId/:token" element={<JoinScreen />} />
