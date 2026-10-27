@@ -234,7 +234,7 @@ export default function ShareScreen() {
           action="Salir"
           onConfirm={() => {
             navigate('/', { replace: true })
-            leaveList(db, uid, listId).catch(showSaveError)
+            leaveList(db, uid, listId, userDoc?.displayName ?? user?.displayName ?? 'Sin nombre').catch(showSaveError)
           }}
         />
       )}

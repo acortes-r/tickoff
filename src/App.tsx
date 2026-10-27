@@ -1,7 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { ActivityBanner } from '@/components/ActivityBanner'
 import { Toaster } from '@/components/ui/sonner'
+import { ActivityProvider } from '@/hooks/useActivity'
 import { useAuth } from '@/hooks/useAuth'
+import { useLists } from '@/hooks/useLists'
 import { markStarted, PENDING_JOIN_KEY, STARTED_KEY } from '@/lib/session'
 import CategoriesScreen from '@/screens/CategoriesScreen'
 import HistoryScreen from '@/screens/HistoryScreen'
@@ -41,8 +44,13 @@ function SignedIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const { user } = useAuth()
+  const lists = useLists(user!.uid)
+
   return (
-    <Routes>
+    <ActivityProvider lists={lists}>
+      <ActivityBanner />
+      <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/l/:listId" element={<ListScreen />} />
       <Route path="/l/:listId/history" element={<HistoryScreen />} />
@@ -52,7 +60,8 @@ function SignedIn() {
       <Route path="/settings/categories" element={<CategoriesScreen />} />
       <Route path="/settings/stores" element={<StoresScreen />} />
       <Route path="*" element={<Home />} />
-    </Routes>
+      </Routes>
+    </ActivityProvider>
   )
 }
 

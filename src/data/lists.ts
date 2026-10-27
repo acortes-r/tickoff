@@ -11,7 +11,7 @@ import {
 import type { ItemKind, Member } from './types'
 
 const BATCH_LIMIT = 450
-const SUBCOLLECTIONS = ['items', 'history', 'products', 'invites']
+const SUBCOLLECTIONS = ['items', 'history', 'products', 'invites', 'activity']
 
 /**
  * Crea la lista. El id se conoce antes de escribir, así la app la abre de

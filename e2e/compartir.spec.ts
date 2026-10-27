@@ -1,23 +1,5 @@
-import { devices, type Browser, type Page } from '@playwright/test'
-import { ANA, BETO, expect, signIn, test } from './fixtures'
-
-/** Segundo celular: otro contexto de navegador, con su propia sesión. */
-async function secondPhone(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ ...devices['Pixel 7'], locale: 'es-MX' })
-  return context.newPage()
-}
-
-/** Ana crea una invitación y devuelve el link (sin Web Share, se copia al portapapeles). */
-async function inviteLink(page: Page): Promise<string> {
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.evaluate(() => {
-    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
-  })
-  await page.getByRole('link', { name: 'Compartir' }).click()
-  await page.getByRole('button', { name: 'Compartir' }).click()
-  await expect(page.getByText('Link copiado')).toBeVisible()
-  return page.evaluate(() => navigator.clipboard.readText())
-}
+import type { Page } from '@playwright/test'
+import { ANA, BETO, expect, inviteLink, secondPhone, signIn, test } from './fixtures'
 
 async function add(page: Page, name: string) {
   const capture = page.getByRole('textbox', { name: 'Agregar' })

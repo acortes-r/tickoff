@@ -110,6 +110,19 @@ export interface HistoryEntryDoc {
   items: HistoryItem[]
 }
 
+export type ActivityType = 'added' | 'done' | 'closed' | 'archived' | 'deleted' | 'joined' | 'left'
+
+export interface ActivityDoc {
+  id: string
+  type: ActivityType
+  actorUid: string
+  actorName: string
+  at: Timestamp
+  itemName?: string
+  count?: number
+  historyId?: string
+}
+
 export interface ProductDoc {
   id: string
   name: string

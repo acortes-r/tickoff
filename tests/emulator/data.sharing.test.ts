@@ -112,7 +112,7 @@ test('leaveList takes carol out and cleans her prefs and last list', async () =>
   const carol = asUser('carol')
   await joinList(carol, caro, 'shared', token)
   await setDoc(doc(carol, 'users/carol'), { displayName: 'Caro Prueba', lastListId: 'shared' })
-  await leaveList(carol, 'carol', 'shared')
+  await leaveList(carol, 'carol', 'shared', 'Caro Prueba')
   expect((await getDoc(doc(carol, 'users/carol/listPrefs/shared'))).exists()).toBe(false)
   expect((await getDoc(doc(carol, 'users/carol'))).data()!.lastListId).toBeNull()
   expect((await list(alice)).memberIds).toEqual(['alice'])

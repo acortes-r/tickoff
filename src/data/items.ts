@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   deleteField,
   doc,
   increment,
@@ -11,6 +10,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import { cleanName, normalizeName, productDocId } from '@/domain/text'
+import { logActivity } from './activity'
 import type { ItemDoc, ItemKind } from './types'
 
 export interface Actor {
@@ -78,6 +78,7 @@ export function queueAddItem(batch: WriteBatch, db: Firestore, listId: string, b
 export async function addItem(db: Firestore, listId: string, by: Actor, input: NewItem): Promise<string> {
   const batch = writeBatch(db)
   const id = queueAddItem(batch, db, listId, by, input)
+  logActivity(batch, db, listId, by, { type: 'added', itemName: requireName(input.name) })
   await batch.commit()
   return id
 }
@@ -92,14 +93,21 @@ export function updateItem(db: Firestore, listId: string, itemId: string, patch:
   return updateDoc(doc(db, 'lists', listId, 'items', itemId), changes)
 }
 
-/** Tachar o destachar; guarda quién lo completó. */
+/** Tachar o destachar; guarda quién lo completó. Solo tachar deja aviso. */
 export function toggleItem(db: Firestore, listId: string, item: ItemDoc, by: Actor): Promise<void> {
   const ref = doc(db, 'lists', listId, 'items', item.id)
-  return item.status === 'pending'
-    ? updateDoc(ref, { status: 'done', doneBy: by.uid, doneByName: by.name, updatedAt: serverTimestamp() })
-    : updateDoc(ref, { status: 'pending', doneBy: deleteField(), doneByName: deleteField(), updatedAt: serverTimestamp() })
+  if (item.status !== 'pending') {
+    return updateDoc(ref, { status: 'pending', doneBy: deleteField(), doneByName: deleteField(), updatedAt: serverTimestamp() })
+  }
+  const batch = writeBatch(db)
+  batch.update(ref, { status: 'done', doneBy: by.uid, doneByName: by.name, updatedAt: serverTimestamp() })
+  logActivity(batch, db, listId, by, { type: 'done', itemName: item.name })
+  return batch.commit()
 }
 
-export function deleteItem(db: Firestore, listId: string, itemId: string): Promise<void> {
-  return deleteDoc(doc(db, 'lists', listId, 'items', itemId))
+export function deleteItem(db: Firestore, listId: string, item: Pick<ItemDoc, 'id' | 'name'>, by: Actor): Promise<void> {
+  const batch = writeBatch(db)
+  batch.delete(doc(db, 'lists', listId, 'items', item.id))
+  logActivity(batch, db, listId, by, { type: 'deleted', itemName: item.name })
+  return batch.commit()
 }

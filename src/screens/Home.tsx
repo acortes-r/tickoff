@@ -3,9 +3,12 @@ import { SettingsIcon, UsersIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { CategoryChip } from '@/components/CategoryChip'
 import { NewListDialog } from '@/components/NewListDialog'
+import { NotificationBell } from '@/components/NotificationBell'
 import { Button } from '@/components/ui/button'
 import type { ListDoc } from '@/data/types'
+import { unseenByList } from '@/domain/activity'
 import { groupListsByCategory } from '@/domain/home'
+import { useActivity } from '@/hooks/useActivity'
 import { useAuth } from '@/hooks/useAuth'
 import { useCategories } from '@/hooks/useCategories'
 import { useListPrefs } from '@/hooks/useListPrefs'
@@ -14,7 +17,7 @@ import { usePendingCounts } from '@/hooks/usePendingCounts'
 import { useUserDoc } from '@/hooks/useUserDoc'
 import { markStarted, STARTED_KEY } from '@/lib/session'
 
-function ListCard({ list }: { list: ListDoc }) {
+function ListCard({ list, unseen }: { list: ListDoc; unseen: boolean }) {
   const counts = usePendingCounts(list.id)
   const shared = list.memberIds.length > 1
 
@@ -24,7 +27,10 @@ function ListCard({ list }: { list: ListDoc }) {
       className="flex min-h-14 items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted [@media(hover:hover)]:hover:bg-muted"
     >
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate font-medium">{list.name}</span>
+        <span className="flex items-center gap-2">
+          <span className="truncate font-medium">{list.name}</span>
+          {unseen && <span role="img" aria-label="Con cambios" className="size-2 shrink-0 rounded-full bg-primary" />}
+        </span>
         <span className="flex gap-2 text-sm text-muted-foreground">
           {counts.buy === 0 && counts.do === 0 ? (
             <span>Sin pendientes</span>
@@ -49,6 +55,8 @@ export default function Home() {
   const prefs = useListPrefs(uid)
   const categories = useCategories(uid)
   const navigate = useNavigate()
+  const { entries } = useActivity()
+  const unseen = uid ? unseenByList(entries, uid, prefs) : new Set<string>()
 
   useEffect(() => {
     if (!userDoc || lists === null || sessionStorage.getItem(STARTED_KEY)) return
@@ -63,11 +71,14 @@ export default function Home() {
     <main className="mx-auto flex max-w-[480px] flex-col gap-8 px-4 py-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">tickoff</h1>
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/settings" aria-label="Ajustes">
-            <SettingsIcon />
-          </Link>
-        </Button>
+        <span className="flex">
+          <NotificationBell />
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/settings" aria-label="Ajustes">
+              <SettingsIcon />
+            </Link>
+          </Button>
+        </span>
       </header>
 
       {lists !== null && groups.length === 0 && (
@@ -82,7 +93,7 @@ export default function Home() {
           </h2>
           <div className="flex flex-col gap-2">
             {group.lists.map((list) => (
-              <ListCard key={list.id} list={list} />
+              <ListCard key={list.id} list={list} unseen={unseen.has(list.id)} />
             ))}
           </div>
         </section>

@@ -10,6 +10,7 @@ import {
   writeBatch,
   type Firestore,
 } from 'firebase/firestore'
+import { logActivity } from './activity'
 import type { InviteDoc, ListDoc } from './types'
 
 const TOKEN_LENGTH = 32
@@ -85,6 +86,7 @@ export async function joinList(db: Firestore, user: Person, listId: string, toke
     joinToken: token,
   })
   batch.set(doc(db, 'users', user.uid, 'listPrefs', listId), { categoryId: null, lastTab: 'buy' })
+  logActivity(batch, db, listId, { uid: user.uid, name: user.displayName }, { type: 'joined' })
   await batch.commit()
 }
 
@@ -98,11 +100,12 @@ export function removeMember(db: Firestore, listId: string, uid: string): Promis
 }
 
 /** Un miembro sale de una lista compartida: deja de verla y se limpian sus preferencias. */
-export async function leaveList(db: Firestore, uid: string, listId: string): Promise<void> {
+export async function leaveList(db: Firestore, uid: string, listId: string, name: string): Promise<void> {
   const user = await getDoc(doc(db, 'users', uid)).catch(() => null)
   const batch = writeBatch(db)
   batch.update(doc(db, 'lists', listId), { memberIds: arrayRemove(uid), [`members.${uid}`]: deleteField() })
   batch.delete(doc(db, 'users', uid, 'listPrefs', listId))
   if (user?.get('lastListId') === listId) batch.update(doc(db, 'users', uid), { lastListId: null })
+  logActivity(batch, db, listId, { uid, name }, { type: 'left' })
   await batch.commit()
 }
