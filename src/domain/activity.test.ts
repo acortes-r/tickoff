@@ -91,7 +91,7 @@ describe('unreadCount', () => {
 })
 
 describe('openSummary', () => {
-  test('per unseen list: who, how many added and how many ticked (closes count their items)', () => {
+  test('per unseen list: who, how many added and how many ticked (closing does not count them twice)', () => {
     const entries = [
       act({ minutes: 10 }),
       act({ minutes: 11 }),
@@ -101,7 +101,7 @@ describe('openSummary', () => {
       act({ listId: 'jardin', minutes: 2 }),
     ]
     expect(openSummary(entries, 'alice', prefs({ despensa: 5, jardin: 5 }))).toEqual([
-      { listId: 'despensa', listName: 'Despensa', actorNames: ['Beto Prueba', 'Caro Prueba'], added: 2, done: 5 },
+      { listId: 'despensa', listName: 'Despensa', actorNames: ['Beto Prueba', 'Caro Prueba'], added: 2, done: 1 },
     ])
   })
 })

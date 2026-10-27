@@ -73,8 +73,8 @@ export function openSummary(entries: ListActivity[], me: string, prefs: Record<s
     const summary = byList.get(e.listId) ?? { listId: e.listId, listName: e.listName, actorNames: [], added: 0, done: 0 }
     if (!summary.actorNames.includes(e.actorName)) summary.actorNames.push(e.actorName)
     if (e.type === 'added') summary.added += 1
+    // Cerrar compra no suma: esos elementos ya contaron al tacharlos.
     if (e.type === 'done') summary.done += 1
-    if (e.type === 'closed' || e.type === 'archived') summary.done += e.count ?? 0
     byList.set(e.listId, summary)
   }
   return [...byList.values()]
