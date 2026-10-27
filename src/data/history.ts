@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { findDuplicate } from '@/domain/items'
 import { normalizeName, productDocId } from '@/domain/text'
+import { logActivity } from './activity'
 import { defined, queueAddItem, type Actor } from './items'
 import type { HistoryEntryDoc, HistoryItem, ItemDoc, ItemKind, ProductDoc } from './types'
 
@@ -90,11 +91,17 @@ export async function closeItems(
   )
 
   const batch = writeBatch(db)
+  const activityId = logActivity(batch, db, listId, by, {
+    type: kind === 'buy' ? 'closed' : 'archived',
+    count: toClose.length,
+    historyId: entryRef.id,
+  })
   batch.set(entryRef, {
     kind: kind === 'buy' ? 'purchase' : 'archive',
     closedAt,
     closedBy: by.uid,
     closedByName: by.name,
+    activityId,
     items: snapshot,
   })
   for (const item of toClose) {
@@ -182,6 +189,8 @@ async function restoreEntry(
   }
   await revertProducts(batch, db, listId, entry, valid)
   batch.delete(entryRef)
+  // El aviso de "terminó la compra" se va con el registro (cierres viejos no lo tienen).
+  if (entry.activityId) batch.delete(doc(db, 'lists', listId, 'activity', entry.activityId))
   return { duplicates, written: batch.commit() }
 }
 
@@ -260,8 +269,12 @@ export async function returnItem(
   if (!(await stillClosedIn(db, listId, entry.id, [item])).has(itemId)) return none
 
   const batch = writeBatch(db)
-  if (fresh.items.length === 1) batch.delete(entryRef)
-  else batch.update(entryRef, { items: arrayRemove(item) })
+  if (fresh.items.length === 1) {
+    batch.delete(entryRef)
+    if (fresh.activityId) batch.delete(doc(db, 'lists', listId, 'activity', fresh.activityId))
+  } else {
+    batch.update(entryRef, { items: arrayRemove(item) })
+  }
   await revertProducts(batch, db, listId, fresh, [item])
 
   const itemRef = doc(db, 'lists', listId, 'items', itemId)

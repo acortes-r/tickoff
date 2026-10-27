@@ -3,6 +3,7 @@ import { EllipsisIcon, HistoryIcon, UserPlusIcon } from 'lucide-react'
 import { Link, useLocation, useParams } from 'react-router'
 import { Avatar } from '@/components/Avatar'
 import { CaptureBar } from '@/components/CaptureBar'
+import { NotificationBell } from '@/components/NotificationBell'
 import { ItemEditor } from '@/components/ItemEditor'
 import { ItemRow } from '@/components/ItemRow'
 import { NameDialog } from '@/components/NameDialog'
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { markListSeen, pruneActivity } from '@/data/activity'
 import { closeItems, undoClose } from '@/data/history'
 import { addItem, deleteItem, toggleItem, updateItem, type Actor } from '@/data/items'
 import { renameList, setLastTab, setListCategory } from '@/data/lists'
@@ -31,7 +33,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCategories } from '@/hooks/useCategories'
 import { useItems } from '@/hooks/useItems'
 import { useList } from '@/hooks/useList'
-import { useListPrefs } from '@/hooks/useListPrefs'
+import { useListPrefsState } from '@/hooks/useListPrefs'
 import { useProducts } from '@/hooks/useProducts'
 import { useStores } from '@/hooks/useStores'
 import { useUserDoc } from '@/hooks/useUserDoc'
@@ -40,6 +42,10 @@ import { showUndoToast } from '@/lib/undoToast'
 
 const NONE = 'none'
 const HIGHLIGHT_MS = 1500
+// Lo que agregaron otros desde la última visita se resalta unos segundos.
+const FRESH_MS = 4000
+// Tiempo mínimo en la lista para contarla como vista.
+const MIN_SEEN_MS = 1000
 
 function CategoryDialog({
   open,
@@ -99,7 +105,8 @@ export default function ListScreen() {
   const list = useList(listId)
   const items = useItems(listId)
   const products = useProducts(listId)
-  const prefs = useListPrefs(uid)[listId]
+  const { prefs: allPrefs, loaded: prefsLoaded } = useListPrefsState(uid)
+  const prefs = allPrefs[listId]
   const { stores, defaultStoreId } = useStores(uid)
 
   const [tab, setTab] = useState<ItemKind | null>(null)
@@ -143,6 +150,40 @@ export default function ListScreen() {
   useEffect(() => {
     if (list) setLastListId(db, uid, listId).catch(showSaveError)
   }, [list?.id, uid, listId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Al abrir: poda avisos viejos. Al salir de la lista o esconder la app: la marca
+  // como vista (quita el punto en Inicio). No se marca al abrir, para que el aviso
+  // al abrir la app alcance a contar lo nuevo.
+  useEffect(() => {
+    pruneActivity(db, listId).catch(() => {})
+    const openedAt = Date.now()
+    const seen = () => markListSeen(db, uid, listId).catch(() => {})
+    const onHide = () => document.visibilityState === 'hidden' && seen()
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', seen)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', seen)
+      // Solo cuenta como vista si se alcanzó a ver (también evita el montaje doble de StrictMode).
+      if (Date.now() - openedAt >= MIN_SEEN_MS) seen()
+    }
+  }, [uid, listId])
+
+  // Última visita, tomada una vez cuando cargan las preferencias: lo que otros
+  // agregaron después se resalta unos segundos.
+  const [seenAt, setSeenAt] = useState<number | null>(null)
+  useEffect(() => {
+    // eslint-disable-next-line react/set-state-in-effect
+    if (prefsLoaded && seenAt === null) setSeenAt(prefs?.lastSeenAt?.toMillis() ?? 0)
+  }, [prefsLoaded, seenAt, prefs])
+  const [freshOver, setFreshOver] = useState(false)
+  useEffect(() => {
+    if (seenAt === null) return
+    const timer = setTimeout(() => setFreshOver(true), FRESH_MS)
+    return () => clearTimeout(timer)
+  }, [seenAt])
+  const isFresh = (item: ItemDoc) =>
+    seenAt !== null && !freshOver && item.addedBy !== uid && item.createdAt.toMillis() > seenAt
 
   useEffect(() => {
     if (!highlightId) return
@@ -209,6 +250,7 @@ export default function ListScreen() {
                 <UserPlusIcon />
               </Link>
             </Button>
+            <NotificationBell />
             <Popover open={menuOpen} onOpenChange={setMenuOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Más opciones">
@@ -275,7 +317,7 @@ export default function ListScreen() {
             <ItemRow
               key={item.id}
               item={item}
-              highlighted={item.id === highlightId}
+              highlighted={item.id === highlightId || isFresh(item)}
               onToggle={() => toggleItem(db, listId, item, by).catch(showSaveError)}
               onEdit={() => setEditing(item)}
             />
@@ -296,7 +338,7 @@ export default function ListScreen() {
         storeOptions={storeOptions}
         onClose={() => setEditing(null)}
         onSave={(changes) => editing && updateItem(db, listId, editing.id, changes).catch(showSaveError)}
-        onDelete={() => editing && deleteItem(db, listId, editing.id).catch(showSaveError)}
+        onDelete={() => editing && deleteItem(db, listId, editing, by).catch(showSaveError)}
       />
       <NameDialog
         open={renaming}

@@ -98,7 +98,7 @@ test('renaming recomputes normalizedName and moving tabs keeps the other fields'
 
 test('deleteItem removes it', async () => {
   const id = await addItem(asUser('alice'), 'shared', ana, { kind: 'buy', name: 'Pan' })
-  await deleteItem(asUser('bob'), 'shared', id)
+  await deleteItem(asUser('bob'), 'shared', await read('shared', id), beto)
   expect((await getDoc(doc(asUser('alice'), `lists/shared/items/${id}`))).exists()).toBe(false)
 })
 

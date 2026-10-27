@@ -1,20 +1,30 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { BrowserRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
+import { ActivityBanner } from '@/components/ActivityBanner'
 import { Toaster } from '@/components/ui/sonner'
+import { ActivityProvider } from '@/hooks/useActivity'
 import { useAuth } from '@/hooks/useAuth'
+import { useLists } from '@/hooks/useLists'
 import { markStarted, PENDING_JOIN_KEY, STARTED_KEY } from '@/lib/session'
 import CategoriesScreen from '@/screens/CategoriesScreen'
 import HistoryScreen from '@/screens/HistoryScreen'
 import Home from '@/screens/Home'
+import JoinScreen from '@/screens/JoinScreen'
 import ListScreen from '@/screens/ListScreen'
 import Login from '@/screens/Login'
-import Placeholder from '@/screens/Placeholder'
 import Settings from '@/screens/Settings'
+import ShareScreen from '@/screens/ShareScreen'
 import StoresScreen from '@/screens/StoresScreen'
 
 // Solo en desarrollo: en el build de producción la rama se elimina con el chunk.
 const Showcase = import.meta.env.DEV ? lazy(() => import('./screens/Showcase')) : null
 
+
+/** Otra lista = pantalla nueva (pestaña, filtro y resaltados no pasan de una lista a otra). */
+function KeyedListScreen() {
+  const { listId } = useParams()
+  return <ListScreen key={listId} />
+}
 
 function SignedOut() {
   const { pathname } = useLocation()
@@ -40,18 +50,24 @@ function SignedIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const { user } = useAuth()
+  const lists = useLists(user!.uid)
+
   return (
-    <Routes>
+    <ActivityProvider lists={lists}>
+      <ActivityBanner />
+      <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/l/:listId" element={<ListScreen />} />
+      <Route path="/l/:listId" element={<KeyedListScreen />} />
       <Route path="/l/:listId/history" element={<HistoryScreen />} />
-      <Route path="/l/:listId/share" element={<Placeholder title="Compartir" />} />
-      <Route path="/join/:listId/:token" element={<Placeholder title="Unirse a una lista" />} />
+      <Route path="/l/:listId/share" element={<ShareScreen />} />
+      <Route path="/join/:listId/:token" element={<JoinScreen />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/settings/categories" element={<CategoriesScreen />} />
       <Route path="/settings/stores" element={<StoresScreen />} />
       <Route path="*" element={<Home />} />
-    </Routes>
+      </Routes>
+    </ActivityProvider>
   )
 }
 

@@ -21,7 +21,7 @@ async function countUnder(listId: string): Promise<number> {
     const db = ctx.firestore() as unknown as Firestore
     const list = await getDoc(doc(db, `lists/${listId}`))
     total += list.exists() ? 1 : 0
-    for (const sub of ['items', 'history', 'products', 'invites']) {
+    for (const sub of ['items', 'history', 'products', 'invites', 'activity']) {
       total += (await getDocs(collection(db, `lists/${listId}/${sub}`))).size
     }
   })
@@ -69,8 +69,12 @@ test('deleteListCascade leaves nothing under the list', async () => {
     await setDoc(doc(s, `lists/${id}/history/h1`), { kind: 'purchase', items: [] })
     await setDoc(doc(s, `lists/${id}/products/leche`), { name: 'Leche', timesPurchased: 1 })
     await setDoc(doc(s, `lists/${id}/invites/t1`), { createdBy: 'alice', expiresAt: Timestamp.now() })
+    const day = 24 * 60 * 60 * 1000
+    for (const [n, days] of [['a1', 1], ['a31', 31]] as const) {
+      await setDoc(doc(s, `lists/${id}/activity/${n}`), { type: 'added', actorUid: 'alice', at: Timestamp.fromMillis(Date.now() - days * day) })
+    }
   })
-  expect(await countUnder(id)).toBe(7)
+  expect(await countUnder(id)).toBe(9)
   await deleteListCascade(db, id)
   expect(await countUnder(id)).toBe(0)
 })

@@ -146,6 +146,34 @@ service cloud.firestore {
         allow read, write: if isMember(listId);
       }
 
+      // Bitácora de actividad: avisos para los demás miembros. Nadie la edita.
+      match /activity/{activityId} {
+        function wasOrIsMember() {
+          return signedIn()
+            && (me() in get(listPath(listId)).data.memberIds          // antes del batch: cubre "salió"
+              || me() in getAfter(listPath(listId)).data.memberIds);  // después: cubre "se unió"
+        }
+
+        function closeNoticeOfDeletedEntry() {
+          return resource.data.type in ['closed', 'archived']
+            && !existsAfter(/databases/$(database)/documents/lists/$(listId)/history/$(resource.data.historyId));
+        }
+
+        allow read: if isMember(listId);
+        allow create: if wasOrIsMember()
+          && request.resource.data.actorUid == me()
+          && request.resource.data.type in ['added', 'done', 'closed', 'archived', 'deleted', 'joined', 'left']
+          && request.resource.data.at == request.time;
+        // Se borra al podar (más de 30 días), al borrar la lista (dueño) o junto
+        // con el registro del historial al deshacer/reabrir un cierre.
+        // Borrar uno que ya no existe (otro lo podó) no debe tumbar el batch.
+        allow delete: if isMember(listId)
+          && (resource == null
+            || resource.data.at < request.time - duration.value(30, 'd')
+            || isOwner(listId)
+            || closeNoticeOfDeletedEntry());
+      }
+
       match /products/{productId} {
         allow read, write: if isMember(listId);
       }

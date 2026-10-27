@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, devices, expect, type Browser, type Page } from '@playwright/test'
 
 const PROJECT = 'demo-tickoff'
 
@@ -30,6 +30,41 @@ export async function signIn(page: Page, user: { email: string; name: string }):
 
 export const ANA = { email: 'ana.prueba@example.com', name: 'Ana Prueba' }
 export const BETO = { email: 'beto.prueba@example.com', name: 'Beto Prueba' }
+
+/** Segundo celular: otro contexto de navegador, con su propia sesión. */
+export async function secondPhone(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({ ...devices['Pixel 7'], locale: 'es-MX' })
+  return context.newPage()
+}
+
+/** Desde una lista: crea una invitación y devuelve el link (sin Web Share, se copia). */
+export async function inviteLink(page: Page): Promise<string> {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+  })
+  await page.getByRole('link', { name: 'Compartir' }).click()
+  await page.getByRole('button', { name: 'Compartir' }).click()
+  await expect(page.getByText('Link copiado')).toBeVisible()
+  return page.evaluate(() => navigator.clipboard.readText())
+}
+
+/** Beto entra en su celular y se une con el link. */
+export async function joinWith(browser: Browser, url: string, user = BETO): Promise<Page> {
+  const phone = await secondPhone(browser)
+  await signIn(phone, user)
+  await phone.goto(url)
+  await phone.getByRole('button', { name: 'Unirme' }).click()
+  await expect(phone.getByRole('heading', { name: 'Despensa' })).toBeVisible()
+  return phone
+}
+
+export async function addItemNamed(page: Page, name: string) {
+  const capture = page.getByRole('textbox', { name: 'Agregar' })
+  await capture.fill(name)
+  await capture.press('Enter')
+  await expect(page.getByRole('checkbox', { name })).toBeVisible()
+}
 
 export const test = base.extend({
   // Cada prueba arranca con emuladores vacíos.
