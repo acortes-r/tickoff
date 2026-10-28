@@ -19,7 +19,7 @@ import type { StoreDoc } from '@/data/types'
 import { db } from '@/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { useStores } from '@/hooks/useStores'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 
 export default function StoresScreen() {
   const { user } = useAuth()
@@ -61,7 +61,7 @@ export default function StoresScreen() {
                     variant="ghost"
                     size="icon"
                     aria-label={`Hacer default ${store.name}`}
-                    onClick={() => setDefaultStore(db, uid, store.id).catch(showSaveError)}
+                    onClick={() => setDefaultStore(db, uid, store.id).catch(reportWriteError)}
                   >
                     <StarIcon />
                   </Button>
@@ -84,7 +84,7 @@ export default function StoresScreen() {
         open={creating}
         onOpenChange={setCreating}
         title="Nueva tienda"
-        onSave={(name) => createStore(db, uid, name).catch(showSaveError)}
+        onSave={(name) => createStore(db, uid, name).catch(reportWriteError)}
       />
       <NameDialog
         open={renaming !== null}
@@ -92,7 +92,7 @@ export default function StoresScreen() {
         title="Renombrar tienda"
         description="Los productos que ya tienen esta tienda conservan el nombre anterior."
         initialName={renaming?.name}
-        onSave={(name) => renaming && renameStore(db, uid, renaming.id, name).catch(showSaveError)}
+        onSave={(name) => renaming && renameStore(db, uid, renaming.id, name).catch(reportWriteError)}
       />
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
@@ -106,7 +106,7 @@ export default function StoresScreen() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => deleting && deleteStore(db, uid, deleting.id).catch(showSaveError)}
+              onClick={() => deleting && deleteStore(db, uid, deleting.id).catch(reportWriteError)}
             >
               Borrar
             </AlertDialogAction>

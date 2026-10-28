@@ -16,7 +16,7 @@ import { useHistory } from '@/hooks/useHistory'
 import { useItems } from '@/hooks/useItems'
 import { useList } from '@/hooks/useList'
 import { useUserDoc } from '@/hooks/useUserDoc'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 
 type Filter = 'all' | 'purchase' | 'archive'
 
@@ -65,7 +65,7 @@ function Entry({
 
   function readd() {
     const result = readdItems(db, listId, by, entry, selected, current)
-    result.written.catch(showSaveError)
+    result.written.catch(reportWriteError)
     setSelected([])
     if (result.added.length) toast(`${result.added.length} ${result.added.length === 1 ? 'agregado' : 'agregados'} a la lista`)
     for (const name of result.duplicates) {
@@ -79,7 +79,7 @@ function Entry({
     setBusy(item.itemId)
     try {
       const result = await returnItem(db, listId, entry, item.itemId, current)
-      result.written.catch(showSaveError)
+      result.written.catch(reportWriteError)
       if (result.duplicateOf) {
         const duplicateOf = result.duplicateOf
         toast(`${item.name} ya estaba pendiente`, { action: { label: 'Ver', onClick: () => onShowInList(duplicateOf) } })
@@ -87,7 +87,7 @@ function Entry({
         toast(`${item.name} regresó a la lista`)
       }
     } catch (err) {
-      showSaveError(err)
+      reportWriteError(err)
     } finally {
       setBusy(null)
     }
@@ -98,13 +98,13 @@ function Entry({
     setBusy('reopen')
     try {
       const result = await reopenEntry(db, listId, entry, current)
-      result.written.catch(showSaveError)
+      result.written.catch(reportWriteError)
       toast(isPurchase ? 'Compra reabierta' : 'Hechos reabiertos')
       for (const dup of result.duplicates) {
         toast(`${dup.name} ya estaba pendiente`, { action: { label: 'Ver', onClick: () => onShowInList(dup.existingId) } })
       }
     } catch (err) {
-      showSaveError(err)
+      reportWriteError(err)
     } finally {
       setBusy(null)
     }

@@ -9,6 +9,7 @@ vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('@/screens/Home', () => ({ default: () => <h1>Inicio</h1> }))
 vi.mock('@/screens/JoinScreen', () => ({ default: () => <h1>Unirse a una lista</h1> }))
 vi.mock('@/hooks/useLists', () => ({ useLists: () => [] }))
+vi.mock('@/hooks/useUserDoc', () => ({ useUserDoc: () => null }))
 vi.mock('@/components/ActivityBanner', () => ({ ActivityBanner: () => null }))
 
 const signedIn = { user: { uid: 'alice' } as User, loading: false }

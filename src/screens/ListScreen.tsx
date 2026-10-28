@@ -37,7 +37,7 @@ import { useListPrefsState } from '@/hooks/useListPrefs'
 import { useProducts } from '@/hooks/useProducts'
 import { useStores } from '@/hooks/useStores'
 import { useUserDoc } from '@/hooks/useUserDoc'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 import { showUndoToast } from '@/lib/undoToast'
 
 const NONE = 'none'
@@ -148,7 +148,7 @@ export default function ListScreen() {
 
   // Abrir la lista la vuelve la última usada.
   useEffect(() => {
-    if (list) setLastListId(db, uid, listId).catch(showSaveError)
+    if (list) setLastListId(db, uid, listId).catch(reportWriteError)
   }, [list?.id, uid, listId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Al abrir: poda avisos viejos. Al salir de la lista o esconder la app: la marca
@@ -212,12 +212,12 @@ export default function ListScreen() {
     try {
       const result = await closeItems(db, listId, by, activeTab, doneVisible, products)
       if (!result) return
-      result.written.catch(showSaveError)
+      result.written.catch(reportWriteError)
       showUndoToast(activeTab === 'buy' ? 'Compra cerrada' : 'Hechos archivados', () =>
-        undoClose(db, listId, result.entryId).catch(showSaveError),
+        undoClose(db, listId, result.entryId).catch(reportWriteError),
       )
     } catch (err) {
-      showSaveError(err)
+      reportWriteError(err)
     } finally {
       closingRef.current = false
       setClosing(false)
@@ -291,7 +291,7 @@ export default function ListScreen() {
         counts={counts}
         onChange={(next) => {
           setTab(next)
-          setLastTab(db, uid, listId, next).catch(showSaveError)
+          setLastTab(db, uid, listId, next).catch(reportWriteError)
         }}
       />
 
@@ -303,7 +303,7 @@ export default function ListScreen() {
         products={products}
         storeOptions={storeOptions}
         defaultStoreName={defaultStoreName}
-        onAdd={(input) => addItem(db, listId, by, input).catch(showSaveError)}
+        onAdd={(input) => addItem(db, listId, by, input).catch(reportWriteError)}
         onDuplicate={(item) => setHighlightId(item.id)}
       />
 
@@ -318,7 +318,7 @@ export default function ListScreen() {
               key={item.id}
               item={item}
               highlighted={item.id === highlightId || isFresh(item)}
-              onToggle={() => toggleItem(db, listId, item, by).catch(showSaveError)}
+              onToggle={() => toggleItem(db, listId, item, by).catch(reportWriteError)}
               onEdit={() => setEditing(item)}
             />
           ))}
@@ -337,8 +337,8 @@ export default function ListScreen() {
         item={editing}
         storeOptions={storeOptions}
         onClose={() => setEditing(null)}
-        onSave={(changes) => editing && updateItem(db, listId, editing.id, changes).catch(showSaveError)}
-        onDelete={() => editing && deleteItem(db, listId, editing, by).catch(showSaveError)}
+        onSave={(changes) => editing && updateItem(db, listId, editing.id, changes).catch(reportWriteError)}
+        onDelete={() => editing && deleteItem(db, listId, editing, by).catch(reportWriteError)}
       />
       <NameDialog
         open={renaming}
@@ -346,14 +346,14 @@ export default function ListScreen() {
         title="Renombrar lista"
         description="Los miembros verán el nombre nuevo."
         initialName={list.name}
-        onSave={(name) => renameList(db, listId, name).catch(showSaveError)}
+        onSave={(name) => renameList(db, listId, name).catch(reportWriteError)}
       />
       {categorizing && (
         <CategoryDialog
           open
           onOpenChange={setCategorizing}
           current={prefs?.categoryId ?? null}
-          onSave={(categoryId) => setListCategory(db, uid, listId, categoryId).catch(showSaveError)}
+          onSave={(categoryId) => setListCategory(db, uid, listId, categoryId).catch(reportWriteError)}
         />
       )}
     </main>

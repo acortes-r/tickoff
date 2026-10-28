@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run --project unit",
     "test:emu": "firebase emulators:exec --only auth,firestore --project demo-tickoff \"vitest run --project emulator\"",
-    "test:e2e": "firebase emulators:exec --only auth,firestore --project demo-tickoff \"playwright test\""
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project demo-tickoff \"playwright test\"",
+    "deploy:prod": "pnpm build && firebase deploy --project prod --only hosting,firestore:rules,firestore:indexes"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
