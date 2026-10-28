@@ -81,3 +81,8 @@ export async function prepareUser(
 export function setLastListId(db: Firestore, uid: string, listId: string | null): Promise<void> {
   return updateDoc(doc(db, 'users', uid), { lastListId: listId })
 }
+
+/** Carpeta "tickoff" en Drive, para no buscarla en cada respaldo. */
+export function setDriveFolderId(db: Firestore, uid: string, folderId: string): Promise<void> {
+  return updateDoc(doc(db, 'users', uid), { driveFolderId: folderId })
+}
