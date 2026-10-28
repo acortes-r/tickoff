@@ -78,3 +78,22 @@ test('uploadFile sends parents:[folderId] and returns id and link', async () => 
   expect(body).toContain('"name":"a.json"')
   expect(body).toContain('{"x":1}')
 })
+
+describe('getDriveToken', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    delete window.google
+  })
+
+  it('gives up if Google never answers (popup lost in an installed iOS app)', async () => {
+    vi.useFakeTimers()
+    window.google = {
+      accounts: { oauth2: { initTokenClient: () => ({ requestAccessToken: () => {} }) } },
+    }
+    const { getDriveToken } = await import('./drive')
+    const token = getDriveToken('client-id-de-prueba')
+    const settled = expect(token).rejects.toThrow('token-timeout')
+    await vi.advanceTimersByTimeAsync(90_000)
+    await settled
+  })
+})

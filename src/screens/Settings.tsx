@@ -79,16 +79,18 @@ export default function Settings() {
     if (busyRef.current) return
     busyRef.current = true
     setBusy(format)
-    let files: Upload[] | null = null
+    // Los datos se juntan mientras se pide el permiso: la ventana de Google
+    // tiene que abrirse dentro del toque, sin esperar nada antes.
+    const pending = buildFiles(uid, format)
+    pending.catch(() => {})
     try {
       if (!CLIENT_ID) {
-        files = await buildFiles(uid, format)
-        await downloadFiles(asLocal(files))
+        await downloadFiles(asLocal(await pending))
         return
       }
-      // El permiso primero, todavía dentro del toque.
+      if (!navigator.onLine) throw new Error('offline')
       const token = await getDriveToken(CLIENT_ID)
-      files = await buildFiles(uid, format)
+      const files = await pending
       const folderId = await ensureFolder(token, userDoc?.driveFolderId ?? null)
       if (folderId !== userDoc?.driveFolderId) setDriveFolderId(db, uid, folderId).catch(console.error)
       await uploadAll(token, folderId, files)
@@ -99,7 +101,9 @@ export default function Settings() {
       console.error(err)
       // AbortError: se cerró el menú de compartir; no es un error.
       if ((err as Error).name === 'AbortError') return
-      if (files) setFailed(asLocal(files))
+      // Sin señal, sin permiso o Drive falló: se ofrece guardarlo en el celular.
+      const local = await pending.then(asLocal, () => null)
+      if (local) setFailed(local)
       else toast.error('No se pudo preparar el respaldo. Inténtalo otra vez.')
     } finally {
       busyRef.current = false

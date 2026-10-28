@@ -7,6 +7,9 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const FOLDER_NAME = 'tickoff'
 const FOLDER_MIME = 'application/vnd.google-apps.folder'
+// Si la ventana de Google se pierde (p. ej. en la app instalada en iOS) no
+// llega respuesta: pasado este tiempo se da por fallido y se ofrece descargar.
+const TOKEN_TIMEOUT_MS = 90_000
 
 interface TokenResponse {
   access_token?: string
@@ -39,6 +42,7 @@ let gisLoading: Promise<void> | null = null
 
 /** Carga Google Identity Services una vez. Llamarla antes del toque evita que el navegador bloquee la ventana. */
 export function loadGis(): Promise<void> {
+  if (window.google) return Promise.resolve()
   gisLoading ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement('script')
     script.src = GIS_SRC
@@ -58,6 +62,18 @@ let cached: { token: string; expiresAt: number } | null = null
 /** Token de Drive (`drive.file`), guardado en memoria hasta que vence. */
 export async function getDriveToken(clientId: string): Promise<string> {
   if (cached && Date.now() < cached.expiresAt) return cached.token
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('token-timeout')), TOKEN_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([requestToken(clientId), timeout])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function requestToken(clientId: string): Promise<string> {
   await loadGis()
   return new Promise((resolve, reject) => {
     const client = window.google!.accounts.oauth2.initTokenClient({

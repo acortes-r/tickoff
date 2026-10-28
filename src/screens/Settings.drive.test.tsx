@@ -46,20 +46,19 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllEnvs())
 
-test('asks for the Drive token before gathering data, uploads both CSVs and remembers the folder', async () => {
-  const order: string[] = []
-  vi.mocked(getDriveToken).mockImplementation(async () => (order.push('token'), 'tok'))
-  vi.mocked(collectExport).mockImplementation(async () => {
-    order.push('collect')
-    return { exportedAt: '', categories: [], stores: [], lists: [] }
-  })
+test('asks for the Drive token without waiting for the data, uploads both CSVs and remembers the folder', async () => {
+  let finishCollect: (value: Awaited<ReturnType<typeof collectExport>>) => void = () => {}
+  vi.mocked(collectExport).mockReturnValue(new Promise((resolve) => (finishCollect = resolve)))
+  vi.mocked(getDriveToken).mockResolvedValue('tok')
   vi.mocked(ensureFolder).mockResolvedValue('new')
   vi.mocked(uploadFile).mockResolvedValue({ id: 'x', webViewLink: '' })
   await renderScreen()
   await userEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }))
 
-  expect(order).toEqual(['token', 'collect'])
+  // El permiso se pide dentro del toque, mientras los datos todavía se juntan.
   expect(getDriveToken).toHaveBeenCalledWith('client-id-de-prueba')
+  finishCollect({ exportedAt: '', categories: [], stores: [], lists: [] })
+  await vi.waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(2))
   expect(ensureFolder).toHaveBeenCalledWith('tok', 'old')
   expect(vi.mocked(uploadFile).mock.calls.map((c) => c[2])).toEqual([
     expect.stringMatching(/^tickoff-elementos-\d{4}-\d{2}-\d{2}\.csv$/),
@@ -80,4 +79,24 @@ test('when Drive fails, offers to download the backup to the phone', async () =>
   expect(downloadFiles).toHaveBeenCalledWith([
     expect.objectContaining({ name: expect.stringMatching(/^tickoff-\d{4}-\d{2}-\d{2}\.json$/), mime: 'application/json' }),
   ])
+})
+
+test('when the Drive permission fails (no signal, popup lost), offers the download', async () => {
+  vi.mocked(getDriveToken).mockRejectedValue(new Error('popup_failed_to_open'))
+  await renderScreen()
+  await userEvent.click(screen.getByRole('button', { name: 'Exportar JSON' }))
+  expect(await screen.findByText('No se pudo guardar en Drive')).toBeInTheDocument()
+  expect(toast.error).not.toHaveBeenCalled()
+})
+
+test('offline, goes straight to the download without asking Google', async () => {
+  Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+  try {
+    await renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Exportar JSON' }))
+    expect(await screen.findByText('No se pudo guardar en Drive')).toBeInTheDocument()
+    expect(getDriveToken).not.toHaveBeenCalled()
+  } finally {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
+  }
 })
