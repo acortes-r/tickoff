@@ -82,7 +82,7 @@ Todos tienen los estados default, hover (solo con puntero fino), focus-visible, 
 | ItemRow | fila completa tocable + `Checkbox`; resaltado de 1.5 s con `bg-muted` al señalar un duplicado |
 | ItemEditor | `Dialog` + `AlertDialog` para borrar |
 | NotificationBell | `Button` `size="icon"` + `Sheet` |
-| SyncBadge | `Badge` |
+| SyncBadge | `Badge` `secondary` fijo arriba al centro (bajo el notch), solo sin señal ("Sin conexión") o con cambios que tardan más de 1 s en subir ("Guardando…"); `role="status"` |
 | Chip de categoría | ícono lucide sobre `CATEGORY_TONES[n]` |
 
 ## 6. Movimiento
@@ -102,6 +102,7 @@ Según `emil-design-eng`:
 - `touch-action: manipulation` (sin retraso de toque) y `overscroll-behavior-y: contain` (sin recargar por accidente al jalar) en `html`.
 - `viewport-fit=cover` y padding `env(safe-area-inset-*)` en `body` para notch e indicador de inicio.
 - `<meta name="theme-color">` se actualiza con el tema (`src/lib/theme.ts`).
+- Ícono de la app: palomita blanca sobre `#171717` (`public/favicon.svg`; PNG 192/512, maskable 512 y `apple-touch-icon` 180 generados de ahí).
 - Nada que dependa de hover: todo lo que aparece en hover también se ve o se alcanza con un toque.
 - Hover solo con `@media (hover: hover) and (pointer: fine)`.
 

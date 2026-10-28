@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import { ActivityBanner } from '@/components/ActivityBanner'
+import { SyncBadge } from '@/components/SyncBadge'
 import { Toaster } from '@/components/ui/sonner'
 import { ActivityProvider } from '@/hooks/useActivity'
 import { useAuth } from '@/hooks/useAuth'
@@ -56,6 +57,7 @@ function SignedIn() {
   return (
     <ActivityProvider lists={lists}>
       <ActivityBanner />
+      <SyncBadge />
       <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/l/:listId" element={<KeyedListScreen />} />

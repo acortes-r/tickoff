@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useInvites } from '@/hooks/useInvites'
 import { useList } from '@/hooks/useList'
 import { useUserDoc } from '@/hooks/useUserDoc'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 
 const expiresFormat = new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -156,7 +156,7 @@ export default function ShareScreen() {
                     variant="ghost"
                     size="icon"
                     aria-label="Cancelar invitación"
-                    onClick={() => revokeInvite(db, listId, invite.id).catch(showSaveError)}
+                    onClick={() => revokeInvite(db, listId, invite.id).catch(reportWriteError)}
                   >
                     <XIcon />
                   </Button>
@@ -190,7 +190,7 @@ export default function ShareScreen() {
                   title={`¿Sacar a ${member.displayName}?`}
                   description="Deja de ver esta lista. Para volver necesita otra invitación."
                   action="Sacar"
-                  onConfirm={() => removeMember(db, listId, memberId).catch(showSaveError)}
+                  onConfirm={() => removeMember(db, listId, memberId).catch(reportWriteError)}
                 />
               )}
             </li>
@@ -211,7 +211,7 @@ export default function ShareScreen() {
           action="Borrar"
           onConfirm={() => {
             navigate('/', { replace: true })
-            deleteListCascade(db, listId).catch(showSaveError)
+            deleteListCascade(db, listId).catch(reportWriteError)
           }}
         />
       ) : (
@@ -227,7 +227,7 @@ export default function ShareScreen() {
           action="Salir"
           onConfirm={() => {
             navigate('/', { replace: true })
-            leaveList(db, uid, listId, userDoc?.displayName ?? user?.displayName ?? 'Sin nombre').catch(showSaveError)
+            leaveList(db, uid, listId, userDoc?.displayName ?? user?.displayName ?? 'Sin nombre').catch(reportWriteError)
           }}
         />
       )}

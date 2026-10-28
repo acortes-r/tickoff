@@ -9,7 +9,7 @@ import { db } from '@/firebase'
 import { useActivity } from '@/hooks/useActivity'
 import { useAuth } from '@/hooks/useAuth'
 import { useUserDoc } from '@/hooks/useUserDoc'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 
 const relative = new Intl.RelativeTimeFormat('es-MX', { numeric: 'auto' })
 
@@ -39,7 +39,7 @@ export function NotificationBell() {
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (next && unread > 0) markNotificationsRead(db, uid).catch(showSaveError)
+        if (next && unread > 0) markNotificationsRead(db, uid).catch(reportWriteError)
       }}
     >
       <SheetTrigger asChild>

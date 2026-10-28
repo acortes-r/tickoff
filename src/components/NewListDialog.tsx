@@ -18,7 +18,7 @@ import { createList } from '@/data/lists'
 import type { CategoryDoc, Member } from '@/data/types'
 import { cleanName } from '@/domain/text'
 import { db } from '@/firebase'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 
 const NONE = 'none'
 const NAME_ERROR = 'Escribe un nombre de hasta 200 caracteres'
@@ -57,7 +57,7 @@ export function NewListDialog({
       return
     }
     const { id, written } = createList(db, uid, member, clean, selected === NONE ? null : selected)
-    written.catch(showSaveError)
+    written.catch(reportWriteError)
     reset(false)
     navigate(`/l/${id}`)
   }

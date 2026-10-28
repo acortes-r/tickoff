@@ -21,7 +21,7 @@ import { db } from '@/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { useCategories } from '@/hooks/useCategories'
 import { CATEGORY_ICON_LABELS, CATEGORY_ICONS } from '@/lib/categoryIcons'
-import { showSaveError } from '@/lib/saveError'
+import { reportWriteError } from '@/hooks/useSyncState'
 import { CATEGORY_TONES } from '@/lib/tones'
 
 const optionClass =
@@ -123,7 +123,7 @@ export default function CategoriesScreen() {
   function move(index: number, delta: number) {
     const ids = categories.map((c) => c.id)
     ;[ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]
-    reorderCategories(db, uid, ids).catch(showSaveError)
+    reorderCategories(db, uid, ids).catch(reportWriteError)
   }
 
   return (
@@ -186,7 +186,7 @@ export default function CategoriesScreen() {
           onOpenChange={(open) => !open && setEditing(undefined)}
           onSave={(input) =>
             (editing ? updateCategory(db, uid, editing.id, input) : createCategory(db, uid, input)).catch(
-              showSaveError,
+              reportWriteError,
             )
           }
         />
@@ -201,7 +201,7 @@ export default function CategoriesScreen() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => deleting && deleteCategory(db, uid, deleting.id).catch(showSaveError)}
+              onClick={() => deleting && deleteCategory(db, uid, deleting.id).catch(reportWriteError)}
             >
               Borrar
             </AlertDialogAction>
